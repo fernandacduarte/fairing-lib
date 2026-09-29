@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fairing-lib"
+version = "0.1.0"
+description = "A small study library for mesh fairing (Botsch et al., Polygon Mesh Processing, Ch. 3-4 and App. A)."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy",
+    "scipy",
+    "matplotlib",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+viewer = ["polyscope"]
+mesh = ["trimesh"]
+
+[tool.setuptools]
+packages = ["fairing"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
