@@ -18,6 +18,7 @@ DIVERGING = LinearSegmentedColormap.from_list(
     "fairing_div", ["#0d366b", "#3987e5", "#f0efec", "#e34948", "#8f1d1c"])
 
 SURFACE_COLOR = "#b7d3f6"   # plain meshes (no scalars)
+MISSING_COLOR = "#d9d8d4"   # faces whose scalar is NaN ("not shown", e.g. the boundary)
 EDGE_COLOR = "#52514e"
 
 
@@ -37,7 +38,9 @@ def plot_mesh(V, F, scalars=None, ax=None, *, title=None, edges=True, diverging=
               color=SURFACE_COLOR, shade=True):
     """Draw a triangle mesh with ``plot_trisurf``, optionally colored by per-vertex scalars.
 
-    Each face gets the mean of its three vertex scalars. With ``diverging=True``
+    Each face gets the mean of its three vertex scalars; a NaN vertex scalar
+    marks a vertex as "not shown", and its faces are drawn in neutral gray
+    (``MISSING_COLOR``). With ``diverging=True``
     the color scale is centered at 0. Returns the axes and the surface artist
     (the artist is the ``mappable`` for a shared colorbar). ``color`` is the
     face color of a plain mesh (used only when ``scalars`` is ``None``); turn
@@ -52,7 +55,7 @@ def plot_mesh(V, F, scalars=None, ax=None, *, title=None, edges=True, diverging=
         surf = ax.plot_trisurf(V[:, 0], V[:, 1], V[:, 2], triangles=F,
                                color=color, shade=shade, **edge_kw)
     else:
-        face_values = np.asarray(scalars, dtype=float)[F].mean(axis=1)
+        face_values = np.ma.masked_invalid(np.asarray(scalars, dtype=float)[F].mean(axis=1))
         lo = face_values.min() if vmin is None else vmin
         hi = face_values.max() if vmax is None else vmax
         if diverging:
@@ -62,7 +65,7 @@ def plot_mesh(V, F, scalars=None, ax=None, *, title=None, edges=True, diverging=
             norm, cmap = Normalize(lo, hi), SEQUENTIAL
         surf = ax.plot_trisurf(V[:, 0], V[:, 1], V[:, 2], triangles=F, **edge_kw)
         surf.set_array(face_values)
-        surf.set_cmap(cmap)
+        surf.set_cmap(cmap.with_extremes(bad=MISSING_COLOR))
         surf.set_norm(norm)
         if colorbar:
             ax.figure.colorbar(surf, ax=ax, shrink=0.6, pad=0.02)
@@ -96,8 +99,8 @@ def compare(meshes, titles, scalars=None, *, shared_scale=True, diverging=False,
 
     colored = [s for s in scalars if s is not None]
     if shared_scale and colored:
-        kwargs.setdefault("vmin", min(np.min(s) for s in colored))
-        kwargs.setdefault("vmax", max(np.max(s) for s in colored))
+        kwargs.setdefault("vmin", min(np.nanmin(s) for s in colored))
+        kwargs.setdefault("vmax", max(np.nanmax(s) for s in colored))
 
     axes, mappable = [], None
     for k, ((V, F), s, title, view) in enumerate(zip(meshes, scalars, titles, views)):
