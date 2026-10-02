@@ -4,9 +4,10 @@
 - [x] #1 Project setup: PR #17
 - [x] #2 Synthetic meshes and OBJ I/O: PR #18
 - [x] #3 Visualization helpers: PR #19
+- [x] #4 Topology helpers: PR #20 (Phase 1 complete)
 
 ## Next
-- #4 Topology helpers: edges, one-rings, boundary, k-rings (Phase 1)
+- #5 Uniform Laplacian, Eq. 3.10 (Phase 2)
 
 ## Decisions
 - **Issue numbers = plan step numbers.** All issues were created before any PR, so issue #N is step N of PLAN.md §3 (M1 is #16).
@@ -20,9 +21,12 @@
 - **Colormaps by the job they do:** magnitudes (‖Lx‖, H) use a single-hue blue ramp (`viz.SEQUENTIAL`); signed quantities use blue ↔ gray ↔ red, centered at 0 (`viz.DIVERGING`). No rainbow maps, which invent false boundaries.
 - **Panels that are compared share one color scale** (`compare(shared_scale=True)`), so equal colors mean equal values.
 - **Interactive viewing lives in separate `examples/01_polyscope_*.py` scripts** (documented in the README), so the PNG scripts and the tests never need polyscope.
+- **Rings are computed by breadth-first search on the sparse adjacency matrix** (`ring_distance`). It returns a distance per vertex (−1 beyond `max_k`), and `k_ring` builds on it. One function covers both fixing k rings next to a free region (#9–#11) and coloring rings in figures.
+- **Index arrays, not masks:** `boundary_vertices` and `k_ring` return sorted vertex indices. Build a boolean mask with `np.isin(np.arange(n), idx)` when needed (e.g. `free_mask` in #9).
 - **Planar meshes are drawn from above** (`views=[(90, -90)]`); from the default oblique angle the jitter is invisible.
 
 ## Gotchas
 - The book PDFs must never enter the repo (it is public). `.gitignore` excludes `*.pdf` as a safety net.
 - The UV sphere has very thin triangles near the poles. Expect worse curvature estimates there (#6).
+- *Graph distance is not Euclidean distance.* On the grid, the k-ring around a vertex is a hexagon sheared along the diagonal direction. Fixing "k rings" is a topological notion, so on irregular meshes the fixed band can be uneven in width.
 - Colored surfaces have no lighting (matplotlib limitation), so 3D shape is harder to read than on plain meshes. Use polyscope when shape matters.
