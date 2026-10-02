@@ -219,3 +219,9 @@ def k_ring(F, seed_vertices, k, n=None):
     """
     dist = ring_distance(F, seed_vertices, max_k=k, n=n)
     return np.flatnonzero(dist >= 0)
+
+
+def add_noise(V, sigma, seed=0):
+    """Add isotropic Gaussian noise (standard deviation ``sigma`` per coordinate) to every vertex."""
+    rng = np.random.default_rng(seed)
+    return np.asarray(V, dtype=float) + rng.normal(0.0, sigma, np.shape(V))
