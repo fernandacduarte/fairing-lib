@@ -54,7 +54,7 @@ Tests (`tests/test_laplacian.py`): M is symmetric with zero row sums, and Σ A�
 
 ![Uniform vs cotangent ‖Lx‖ on the same irregular planar grid](../img/06-uniform-vs-cotan.png)
 
-`docs/img/06-uniform-vs-cotan.png`: the same flat, irregular grid, same color scale. The uniform ‖Lx‖ is non-zero everywhere inside, while the cotangent ‖Lx‖ is zero to machine precision (below 1e-10): that is linear precision. The two operators have different units (length vs 1/length), so only "zero vs non-zero" is comparable here, which is the point.
+`docs/img/06-uniform-vs-cotan.png`: the same flat, irregular grid, same color scale. The uniform ‖Lx‖ is non-zero everywhere inside, while the cotangent ‖Lx‖ is zero to machine precision (below 1e-10): that is linear precision. The two operators have different units (length vs 1/length), so the shared scale is only valid because the correct answer here is 0, and zero is zero in any unit: the figure compares zero vs non-zero, not magnitudes.
 
 ![Mean curvature on the sphere and its convergence](../img/06-sphere-H.png)
 
@@ -64,4 +64,4 @@ Tests (`tests/test_laplacian.py`): M is symmetric with zero row sums, and Σ A�
 - *Barycentric areas break at fan-shaped vertices.* A UV-sphere pole is the apex of n thin triangles. Its barycentric cell is ⅓ of the fan, about πρ²/3, where ρ is the edge length to the first ring. Its Voronoi cell, which is what the derivation of Eq. 3.11 integrates over, is about πρ²/4. The ratio 4/3 makes H = ¾·(1/R), and refining does not help, because the shape of the fan stays the same. The cotangent weights in M are fine; only D is off. This is exactly what the mixed Voronoi area of moonshot M1 (#16) fixes.
 - *Face colors hide single-vertex outliers.* `plot_mesh` colors a face by the mean of its vertices, so a bad value at one vertex is diluted by its neighbors. For a quantitative claim, plot numbers (as in the convergence plot), not colors.
 - *Cotangent weights can be negative.* cot α + cot β < 0 when α + β > π (§3.3.4). Our test meshes stay far from that, but strongly obtuse triangles (e.g. heavy jitter) would trigger it.
-- *Units differ between the two Laplacians.* The uniform Lx is a length; the cotangent Lx is a curvature (1/length). Never put them on one color scale expecting comparable magnitudes.
+- *Units differ between the two Laplacians.* The uniform Lx is a length; the cotangent Lx is a curvature (1/length). A shared color scale can therefore only show **zero vs non-zero**, as in `06-uniform-vs-cotan.png`, where the correct answer is 0. When both are non-zero (e.g. on a sphere), their magnitudes are not comparable: scaling the mesh by 10 multiplies the uniform values by 10 and divides the cotangent values by 10.
