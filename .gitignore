@@ -14,3 +14,7 @@ dist/
 
 # The book is copyrighted: never commit it (or any other PDF)
 *.pdf
+
+# polyscope / imgui window settings (written when the viewer runs)
+.polyscope.ini
+imgui.ini
