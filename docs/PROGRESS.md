@@ -19,6 +19,7 @@
 - **OBJ writes 17 significant digits,** so a save/load round trip is bit-exact.
 - **Colormaps by the job they do:** magnitudes (‖Lx‖, H) use a single-hue blue ramp (`viz.SEQUENTIAL`); signed quantities use blue ↔ gray ↔ red, centered at 0 (`viz.DIVERGING`). No rainbow maps, which invent false boundaries.
 - **Panels that are compared share one color scale** (`compare(shared_scale=True)`), so equal colors mean equal values.
+- **Interactive viewing lives in separate `examples/01_polyscope_*.py` scripts** (documented in the README), so the PNG scripts and the tests never need polyscope.
 - **Planar meshes are drawn from above** (`views=[(90, -90)]`); from the default oblique angle the jitter is invisible.
 
 ## Gotchas

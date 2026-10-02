@@ -50,6 +50,8 @@ This phase builds the tools that every later experiment relies on: a package, sy
 | `show_polyscope`, `viz.py:113` | interactive viewer; polyscope is imported only inside this function |
 | `SEQUENTIAL`, `DIVERGING`, `viz.py:14` | blue ramp for magnitudes; blue–gray–red for signed values, with gray at 0 |
 
+To inspect a mesh interactively, run `examples/01_polyscope_one_mesh.py` (one mesh colored by a scalar) or `examples/01_polyscope_all_meshes.py` (all four meshes side by side). The README explains how to install and use the viewer.
+
 **What the figures show.**
 
 ![The four synthetic meshes](../img/03-meshes.png)

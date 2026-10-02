@@ -10,3 +10,35 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 pytest
 ```
+
+## Viewing meshes interactively with polyscope
+
+The figures in `docs/img/` are static matplotlib PNGs. To rotate, zoom, and inspect a mesh, use [polyscope](https://polyscope.run/py/), an optional viewer. It also lights colored surfaces, so their shape stays readable, which matplotlib cannot do.
+
+**1. Install it** (once, inside `.venv`):
+
+```bash
+pip install -e ".[viewer]"
+```
+
+**2. Run an example.** Each one opens a window; close it, or press `Esc`, to return to the terminal.
+
+| Script | What it shows |
+|---|---|
+| `python examples/01_polyscope_one_mesh.py` | the UV sphere colored by its height `z` |
+| `python examples/01_polyscope_all_meshes.py` | the four synthetic meshes side by side, with edges |
+
+**3. In the window:** drag with the left mouse button to rotate, drag with the right button to pan, and scroll to zoom. The left panel lists the meshes: use the checkboxes to show or hide them, and open a mesh's entry to change its color, edges, or scalar colormap.
+
+**4. In your own code**, `viz.show_polyscope` opens any mesh, optionally colored by one value per vertex:
+
+```python
+from fairing import mesh, viz
+
+V, F = mesh.uv_sphere(16, 24)
+viz.show_polyscope(V, F, scalars=V[:, 2])   # scalars: one value per vertex, or None
+```
+
+To show several meshes in one window, call polyscope directly, as `examples/01_polyscope_all_meshes.py` does: `ps.init()`, then `ps.register_surface_mesh(name, V, F)` for each mesh, then `ps.show()`.
+
+polyscope is never needed by the tests or by CI.
