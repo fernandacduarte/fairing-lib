@@ -62,3 +62,28 @@ To inspect a mesh interactively, run `examples/01_polyscope_one_mesh.py` (one me
 - *Planar meshes seen from the side hide everything.* At the default camera angle the jitter was invisible, which is why `compare` takes a per-panel `views` argument.
 - *Colored surfaces are unlit.* Once `plot_trisurf` colors faces by a scalar, it no longer shades them by their orientation, so shape cues vanish. For judging shape, look at a plain mesh or use polyscope.
 - *Unequal axis scaling distorts shapes.* matplotlib 3D axes are not equal by default, so a sphere would look like an ellipsoid; `_set_equal_aspect` fixes the limits and the box aspect.
+
+## #4 Topology helpers
+
+**Theory → code.** The discrete operators of Chapter 3 are *local*: the Laplacian at vᵢ uses only vᵢ and its one-ring N₁(vᵢ) (§3.3.1, Eq. 3.10/3.11). So the Laplace matrix has the sparsity pattern of the adjacency matrix plus its diagonal (App. A.1, "Sparsity"). Fairing with `Lᵏ` reaches k rings away, which is why k rings next to the free region must be fixed for C^(k−1) continuity (§4.3, p. 60).
+
+| Concept | Book | Code |
+|---|---|---|
+| edges (each counted once) | — | `edges`, `fairing/mesh.py:156` |
+| one-ring N₁(vᵢ), valence deg(vᵢ) | §3.3.1, Eq. 3.10 | `adjacency`, `mesh.py:161`; `one_rings`, `mesh.py:175` |
+| boundary: edges with one triangle | — | `boundary_vertices`, `mesh.py:185` |
+| n-ring neighborhood Nₖ, grown from a set | §3.3.1; §4.3 p. 60 | `ring_distance` (BFS), `mesh.py:195`; `k_ring`, `mesh.py:214` |
+
+Checks in `tests/test_topology.py`: grid boundary 2(nx + ny) − 4, sphere 0, tube 2·n_theta. Interior valence 6, and k-ring sizes 1 + 3k(k+1), i.e. 7, 19, 37. The Euler characteristic V − E + F is 1 (disk), 2 (sphere), 0 (open cylinder). Distance from the grid boundary is min(i, j, nx−1−i, ny−1−j).
+
+**What the figures show.**
+
+![Rings grown from the boundary and from one vertex](../img/04-rings.png)
+
+`docs/img/04-rings.png`, left: the setup that #9–#11 will use. The orange vertices form a free disk; they will move when we solve `Lᵏx = 0`. Everything else is fixed. The fixed rings are grown **outward from the free region**: ring 1 touches it, ring 2 is one step further, and so on. Solving with Lᵏ needs the first k of these rings (k = 1 needs ring 1, k = 2 needs rings 1–2, k = 3 needs rings 1–3), because the Laplacian at a free vertex next to the edge, applied k times, reaches k rings outward. Right: rings grown from a single vertex (star). Ring k adds 6k vertices (6, 12, 18), so the k-ring holds 1 + 3k(k+1) vertices: this is the stencil that Lᵏ reaches (App. A.1).
+
+**Pitfalls.**
+- *Graph distance is not Euclidean distance.* The rings around one vertex form a hexagon sheared along the diagonal direction, not a circle: the diagonal edges make one diagonal direction "shorter" than the other. A "k-ring" band is a topological notion, and on irregular meshes its physical width can vary.
+- *Boundary detection relies on manifold edges.* An edge is counted as boundary when exactly one triangle uses it. A non-manifold edge (three or more triangles) would be counted as interior; our synthetic meshes are all manifold, but the bunny (#14) must be checked.
+- *Which way do the rings grow?* `ring_distance` grows rings outward from whatever seed set it is given. Seeded with the mesh boundary, the rings march inward, which is not what fairing needs. Fairing seeds them with the free region, so the rings grow outward into the fixed part. A first version of the figure seeded the boundary and was confusing; it was replaced.
+- *A plain flat mesh seen from above is shaded gray.* matplotlib lights the surface from an oblique angle, so `plot_mesh` gained `color` and `shade=False` for these top-down diagrams.

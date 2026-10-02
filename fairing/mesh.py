@@ -8,6 +8,7 @@ tube and the sphere).
 """
 
 import numpy as np
+import scipy.sparse as sp
 
 
 # ---------------------------------------------------------------------------
@@ -140,3 +141,81 @@ def load_obj(path):
                     raise ValueError(f"only triangles are supported, got: {line.strip()}")
                 F.append([int(t.split("/")[0]) - 1 for t in tokens[1:]])
     return np.array(V, dtype=float).reshape(-1, 3), np.array(F, dtype=int).reshape(-1, 3)
+
+
+# ---------------------------------------------------------------------------
+# Topology helpers
+# ---------------------------------------------------------------------------
+
+def _half_edges(F):
+    """The three directed edges (a, b), (b, c), (c, a) of every triangle."""
+    F = np.asarray(F)
+    return np.concatenate([F[:, [0, 1]], F[:, [1, 2]], F[:, [2, 0]]])
+
+
+def edges(F):
+    """Unique undirected edges as an ``(E, 2)`` array with ``i < j`` in each row."""
+    return np.unique(np.sort(_half_edges(F), axis=1), axis=0)
+
+
+def adjacency(F, n=None):
+    """Symmetric 0/1 vertex adjacency matrix (``scipy.sparse``, CSR).
+
+    Entry ``(i, j)`` is 1 when ``vi`` and ``vj`` share an edge. Row ``i``
+    therefore lists the one-ring ``N1(vi)`` of Sec. 3.3.1, the same sparsity
+    pattern as the Laplacian matrix (App. A.1, "Sparsity").
+    """
+    E = edges(F)
+    n = int(np.max(F)) + 1 if n is None else n
+    ones = np.ones(2 * len(E))
+    A = sp.coo_matrix((ones, (np.r_[E[:, 0], E[:, 1]], np.r_[E[:, 1], E[:, 0]])), shape=(n, n))
+    return A.tocsr()
+
+
+def one_rings(F, n=None):
+    """List of one-ring neighbor arrays: ``one_rings(F)[i]`` is ``N1(vi)``, sorted.
+
+    ``len(one_rings(F)[i])`` is the valence ``deg(vi)`` used by the uniform
+    Laplacian (Eq. 3.10).
+    """
+    A = adjacency(F, n)
+    return [A.indices[A.indptr[i]:A.indptr[i + 1]] for i in range(A.shape[0])]
+
+
+def boundary_vertices(F):
+    """Sorted indices of the vertices on the mesh boundary.
+
+    An interior edge is shared by two triangles; a boundary edge belongs to
+    exactly one. The boundary vertices are the endpoints of boundary edges.
+    """
+    E, counts = np.unique(np.sort(_half_edges(F), axis=1), axis=0, return_counts=True)
+    return np.unique(E[counts == 1])
+
+
+def ring_distance(F, seed_vertices, max_k=None, n=None):
+    """Graph distance (number of edges) from the seed vertices to every vertex.
+
+    Breadth-first search: ring 0 is the seeds, ring ``d`` is every vertex
+    whose nearest seed is ``d`` edges away. Vertices farther than ``max_k``
+    (or unreachable) get ``-1``.
+    """
+    A = adjacency(F, n)
+    dist = np.full(A.shape[0], -1)
+    dist[np.asarray(seed_vertices)] = 0
+    frontier = dist == 0
+    d = 0
+    while frontier.any() and (max_k is None or d < max_k):
+        d += 1
+        frontier = (A @ frontier > 0) & (dist == -1)   # neighbors of the last ring, not yet seen
+        dist[frontier] = d
+    return dist
+
+
+def k_ring(F, seed_vertices, k, n=None):
+    """Sorted indices of all vertices within ``k`` edges of the seeds (seeds included).
+
+    This is the n-ring neighborhood ``N_k`` of Sec. 3.3.1, grown from a set of
+    vertices. ``k_ring(F, [i], 1)`` is ``vi`` plus its one-ring.
+    """
+    dist = ring_distance(F, seed_vertices, max_k=k, n=n)
+    return np.flatnonzero(dist >= 0)

@@ -33,12 +33,15 @@ def _set_equal_aspect(ax, V):
 
 
 def plot_mesh(V, F, scalars=None, ax=None, *, title=None, edges=True, diverging=False,
-              vmin=None, vmax=None, colorbar=True, elev=25, azim=-60, axis_off=True):
+              vmin=None, vmax=None, colorbar=True, elev=25, azim=-60, axis_off=True,
+              color=SURFACE_COLOR, shade=True):
     """Draw a triangle mesh with ``plot_trisurf``, optionally colored by per-vertex scalars.
 
     Each face gets the mean of its three vertex scalars. With ``diverging=True``
     the color scale is centered at 0. Returns the axes and the surface artist
-    (the artist is the ``mappable`` for a shared colorbar).
+    (the artist is the ``mappable`` for a shared colorbar). ``color`` is the
+    face color of a plain mesh (used only when ``scalars`` is ``None``); turn
+    ``shade`` off to keep that color flat, e.g. for planar meshes seen from above.
     """
     V, F = np.asarray(V, dtype=float), np.asarray(F)
     if ax is None:
@@ -47,7 +50,7 @@ def plot_mesh(V, F, scalars=None, ax=None, *, title=None, edges=True, diverging=
 
     if scalars is None:
         surf = ax.plot_trisurf(V[:, 0], V[:, 1], V[:, 2], triangles=F,
-                               color=SURFACE_COLOR, shade=True, **edge_kw)
+                               color=color, shade=shade, **edge_kw)
     else:
         face_values = np.asarray(scalars, dtype=float)[F].mean(axis=1)
         lo = face_values.min() if vmin is None else vmin
