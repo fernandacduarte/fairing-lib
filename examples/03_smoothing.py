@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from fairing import mesh, viz
-from fairing.laplacian import mean_curvature
+from fairing.laplacian import mean_curvature, uniform_laplacian
 from fairing.smoothing import explicit_smoothing, explicit_step_limit, roughness
 
 IMG = Path(__file__).resolve().parents[1] / "docs" / "img"
@@ -49,34 +49,50 @@ def figure_explicit_iterations():
 
 
 def figure_explicit_unstable():
-    """Issue #7: just above the step limit, explicit smoothing blows up."""
+    """Issue #7: just above the step limit, explicit smoothing blows up.
+
+    The plotted quantity is the mean ||Lx|| of the uniform Laplacian: the average
+    distance from a vertex to the centroid of its neighbors, i.e. the size of the
+    zig-zag (high-frequency) part of the mesh.
+    """
     V0, F = noisy_sphere()
     limit = explicit_step_limit(V0, F, laplacian="uniform")
+    L = uniform_laplacian(V0, F)[0]                        # depends only on F
+    zigzag = lambda V: np.linalg.norm(L @ V, axis=1).mean()
     runs = [(0.5, "#86b6ef"), (0.9, "#1c5cab"), (1.1, "#eb6834")]
-    n_iter = 60
-    fig = plt.figure(figsize=(10, 4.4))
+    n_iter, snap_it = 40, 10
+    fig = plt.figure(figsize=(10, 4.6))
     ax_plot = fig.add_subplot(1, 2, 2)
-    spiky = None
     for frac, color in runs:
-        V, sizes = V0, [np.abs(V0).max()]
+        V, amp = V0, [zigzag(V0)]
         for it in range(1, n_iter + 1):
             V = explicit_smoothing(V, F, frac * limit, laplacian="uniform")
-            sizes.append(np.abs(V).max())
-            if frac > 1 and spiky is None and sizes[-1] > 1.6:
-                spiky = (V, it)
-        ax_plot.semilogy(sizes, color=color, lw=2, label=f"h = {frac} × limit")
-    ax_plot.axhline(1.0, color="#8a8984", lw=1, ls="--")
+            amp.append(zigzag(V))
+            if frac > 1 and it == snap_it:
+                snapshot = V
+        ax_plot.semilogy(amp, color=color, lw=2, label=f"h = {frac} × limit")
+        if frac > 1:
+            unstable_amp = amp
+    ax_plot.plot(snap_it, unstable_amp[snap_it], "o", ms=9, color="#eb6834", mec="white", mew=1.5, zorder=3)
+    ax_plot.annotate(f"step {snap_it} (left)", (snap_it, unstable_amp[snap_it]),
+                     xytext=(snap_it + 3, unstable_amp[snap_it] * 4), fontsize=9, color="#3d3c39",
+                     arrowprops=dict(arrowstyle="-", color="#8a8984", lw=0.8))
+    ax_plot.annotate("above the limit the zig-zag grows\n×1.2 per step: a straight line\non this log axis",
+                     (27, unstable_amp[22]), fontsize=9, color="#3d3c39", ha="left")
+    ax_plot.set_ylim(bottom=2.5e-3)
+    ax_plot.annotate("below the limit the noise is damped; what remains\nis the smooth sphere's own (curvature) part of Lx",
+                     (12, 3.0e-3), fontsize=9, color="#3d3c39")
     ax_plot.set_xlabel("iteration")
-    ax_plot.set_ylabel("largest coordinate |x|")
+    ax_plot.set_ylabel("zig-zag size: mean ‖Lx‖ (uniform)")
     ax_plot.set_title(f"uniform Laplacian, step limit = {limit:.2f}")
     ax_plot.grid(True, color="#e6e5e1", lw=0.8)
     for side in ("top", "right"):
         ax_plot.spines[side].set_visible(False)
     ax_plot.legend(frameon=False, loc="upper left")
 
-    V, it = spiky
     ax = fig.add_subplot(1, 2, 1, projection="3d")
-    viz.plot_mesh(V, F, ax=ax, title=f"h = 1.1 × limit, iteration {it}")
+    viz.plot_mesh(snapshot, F, ax=ax,
+                  title=f"h = 1.1 × limit, step {snap_it}:\nneighbors pushed in opposite directions")
     fig.tight_layout()
     fig.savefig(IMG / "07-explicit-unstable.png", dpi=150, bbox_inches="tight")
     print("saved", IMG / "07-explicit-unstable.png")

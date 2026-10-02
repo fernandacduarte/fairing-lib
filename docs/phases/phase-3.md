@@ -28,11 +28,16 @@ Each panel is zoomed to fit its mesh, so shrinking is visible only in the number
 
 ![Explicit smoothing blows up above the step limit](../img/07-explicit-unstable.png)
 
-`docs/img/07-explicit-unstable.png`: the largest coordinate over 60 uniform steps. At 0.5× and 0.9× the limit the mesh slowly shrinks. At 1.1× the limit the worst mode is multiplied by |1 − 1.1·2| = 1.2 per step. It is invisible at first (it starts as a tiny part of the noise), then grows exponentially (a straight line on the log axis) and tears the mesh apart (left, step 32).
+`docs/img/07-explicit-unstable.png`, right: the size of the zig-zag part of the mesh, measured as the mean uniform ‖Lx‖ (how far vertices sit from their neighbors' centroid), over 40 steps on a log axis.
+- **0.5× and 0.9× the limit:** the noise is damped within a few steps. What remains (≈ 0.006) is the smooth sphere's own curvature part of Lx, not noise.
+- **1.1× the limit:** the worst mode, in which neighboring vertices move in opposite directions, is multiplied by |1 − 1.1·2| = 1.2 per step. After a short dip, while the other modes are still being damped, the curve becomes a straight line, which on a log axis means exponential growth.
+
+Left: the mesh at step 10 of that run (the dot on the curve). The sphere is still recognizable, but neighboring vertices have been pushed in and out, giving the faceted zig-zag look. A few dozen steps later the mesh is torn into spikes.
 
 **Pitfalls.**
 - *The cotangent flow is stiff.* Its stable step is dictated by the thinnest triangles (here the UV-sphere poles), not by the noise you want to remove. Explicit cotangent smoothing therefore needs very many tiny steps. This is the book's reason for implicit integration (#8).
 - *Laplacian smoothing shrinks.* For mean curvature flow on a sphere, dr/dt = −2λH = −2λ/r, so r² = r₀² − 4λt. Our cotangent run gives exactly that (r = 0.994 after t = 0.0027). The uniform flow is not mean curvature flow: its speed depends on local edge lengths, which vary over the UV sphere. So it shrinks much faster and unevenly, and the sphere turns into an elongated shape.
 - *The limit depends on the mesh.* It must be computed for each mesh (`explicit_step_limit`); a value from another mesh, even a slightly noisier one, may be unsafe. It can also drift while the mesh evolves, since L is rebuilt every step.
+- *Pick the measure that sees the problem.* The first version of the blow-up figure plotted the largest coordinate. It stays flat until step ~22, although the mesh is already wrecked by then: the zig-zag is larger than an edge long before it changes the overall size. The mean ‖Lx‖ measures the zig-zag directly and shows the ×1.2 growth from the start.
 - *The obvious noise measure failed.* The spread of the vertex radii *increased* under uniform smoothing, because the shape stops being a sphere even as the noise vanishes. A local measure (angles between neighboring normals) separates "noise" from "shape". On coarse meshes, compare it with the clean mesh's value, since faceting alone makes it non-zero.
 - *A capped color scale.* The noisy H has a long tail (up to ~40), so the figure caps the scale at 4. Without the cap, every panel looks equally pale.
