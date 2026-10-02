@@ -43,3 +43,15 @@ def test_compare_shares_the_color_scale(tmp_path):
 
 def test_polyscope_is_never_imported():
     assert "polyscope" not in sys.modules
+
+
+def test_nan_scalars_are_drawn_as_missing():
+    V, F = grid(4, 4)
+    s = np.arange(16.0)
+    s[0] = np.nan                                           # vertex 0 is "not shown"
+    _, surf = viz.plot_mesh(V, F, scalars=s)
+    values = surf.get_array()
+    touches_0 = np.any(F == 0, axis=1)
+    assert np.all(values.mask == touches_0)                 # only faces at vertex 0 are masked
+    assert surf.norm.vmin == np.nanmin(s[F].mean(axis=1))   # NaN does not break the color range
+    plt.close("all")
