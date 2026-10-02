@@ -6,9 +6,10 @@
 - [x] #3 Visualization helpers: PR #19
 - [x] #4 Topology helpers: PR #20 (Phase 1 complete)
 - [x] #5 Uniform Laplacian: PR #21
+- [x] #6 Cotangent Laplacian: PR #22 (Phase 2 complete)
 
 ## Next
-- #6 Cotangent Laplacian with barycentric areas, Eq. 3.11 (Phase 2)
+- #7 Explicit Laplacian smoothing, §4.2 (Phase 3)
 
 ## Decisions
 - **Issue numbers = plan step numbers.** All issues were created before any PR, so issue #N is step N of PLAN.md §3 (M1 is #16).
@@ -25,12 +26,14 @@
 - **Rings are computed by breadth-first search on the sparse adjacency matrix** (`ring_distance`). It returns a distance per vertex (−1 beyond `max_k`), and `k_ring` builds on it. One function covers both fixing k rings next to a free region (#9–#11) and coloring rings in figures.
 - **Index arrays, not masks:** `boundary_vertices` and `k_ring` return sorted vertex indices. Build a boolean mask with `np.isin(np.arange(n), idx)` when needed (e.g. `free_mask` in #9).
 - **Laplacians return `(L, D, M)`** with `L = D @ M` (App. A.1). M is kept separately because it is symmetric and the solvers in #8–#9 need it.
+- **Cotangent weights are accumulated per triangle:** each triangle adds cot of its angle at k to edge (i, j); duplicate sparse entries sum to cot α + cot β, and a boundary edge keeps a single cotangent.
+- **`laplacian="uniform" | "cotan"` strings** select an operator through `LAPLACIANS`; later functions (smoothing, fairing) take the same argument.
 - **NaN means "not shown" in plots:** `plot_mesh` draws faces with a NaN vertex scalar in neutral gray. Figures use this to exclude boundary vertices, whose one-sided Lx would swamp the color scale.
 - **Planar meshes are drawn from above** (`views=[(90, -90)]`); from the default oblique angle the jitter is invisible.
 
 ## Gotchas
 - The book PDFs must never enter the repo (it is public). `.gitignore` excludes `*.pdf` as a safety net.
-- The UV sphere has very thin triangles near the poles. Expect worse curvature estimates there (#6).
+- **Barycentric area is wrong at UV-sphere poles:** it is 4/3 of the Voronoi cell, so H = ¾·(1/R) there, at any resolution. Elsewhere H converges like h². Fixed only by mixed Voronoi areas (M1, #16).
 - *Graph distance is not Euclidean distance.* On the grid, the k-ring around a vertex is a hexagon sheared along the diagonal direction. Fixing "k rings" is a topological notion, so on irregular meshes the fixed band can be uneven in width.
 - The uniform ‖Lx‖ scales with the edge length h (≈ 0.12·h on the irregular grids), so it is not a curvature estimate: 0.004 instead of 2H = 2 on the unit sphere. Only area-normalized Laplacians (#6) approximate Δx = −2H·n.
 - Colored surfaces have no lighting (matplotlib limitation), so 3D shape is harder to read than on plain meshes. Use polyscope when shape matters.
