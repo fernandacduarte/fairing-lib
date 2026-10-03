@@ -12,6 +12,9 @@ dependencies = [
     "numpy",
     "scipy",
     "matplotlib",
+    # Sparse Cholesky (CHOLMOD) for the fairing solver only; needs the SuiteSparse
+    # C library installed first (see README, "Install").
+    "scikit-sparse>=0.5",
 ]
 
 [project.optional-dependencies]

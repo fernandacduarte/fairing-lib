@@ -4,9 +4,38 @@ A small Python library for studying **mesh fairing** as presented in *Polygon Me
 
 ## Install
 
+**1. SuiteSparse (once per machine).** The fairing solver uses a sparse Cholesky factorization from [CHOLMOD](https://github.com/DrTimothyAldenDavis/SuiteSparse), through the Python package `scikit-sparse`. It has no prebuilt wheels, so pip compiles it against the SuiteSparse C library, which must be installed first.
+
+- macOS (Homebrew):
+
+  ```bash
+  brew install suite-sparse
+  ```
+
+- Ubuntu / Debian:
+
+  ```bash
+  sudo apt-get install libsuitesparse-dev
+  ```
+
+**2. The package, in a virtual environment.**
+
 ```bash
 python3.11 -m venv .venv
 source .venv/bin/activate
+```
+
+On macOS, tell the build where Homebrew put SuiteSparse. The last line works around a Command Line Tools glitch where `clang++` cannot find the standard C++ headers (`fatal error: 'complex' file not found`):
+
+```bash
+export SUITESPARSE_INCLUDE_DIR="$(brew --prefix suite-sparse)/include/suitesparse"
+export SUITESPARSE_LIBRARY_DIR="$(brew --prefix suite-sparse)/lib"
+export CPLUS_INCLUDE_PATH="$(xcrun --show-sdk-path)/usr/include/c++/v1"
+```
+
+On Linux these are not needed. Then:
+
+```bash
 pip install -e ".[dev]"
 pytest
 ```
