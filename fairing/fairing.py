@@ -45,7 +45,13 @@ def solve_fair(V, F, free_mask, k, laplacian="cotan"):
 
     ``A_ff`` is symmetric positive definite as long as some vertex is
     constrained; it is factorized once with Cholesky and solved for x, y and z
-    together. ``L`` is built from the input geometry ``V``.
+    together.
+
+    ``L`` is built once from the input geometry ``V`` and then frozen, which
+    is what makes the system linear. The cotangent weights therefore depend on
+    where the free vertices start: a smooth start gives a sensible result, a
+    badly damaged one can corrupt it (see docs/phases/phase-4.md, #10). The
+    uniform weights do not depend on positions at all.
 
     For ``C^(k-1)`` continuity at the border of the free region, the ``k``
     rings of vertices around it should be constrained (Sec. 4.3).
