@@ -179,7 +179,7 @@ Tests (`tests/test_fairing.py`): rings 1–3 around the free region end before t
 
 ![Two pipes at 90 degrees, k = 1, 2, 3](../img/11-elbow-k123.png)
 
-`docs/img/11-elbow-k123.png`. Top row: rendered like the book, with lit surfaces, gray fixed pipes and a blue free bend. Bottom row: the same surfaces colored by mean curvature. The results reproduce Fig. 4.8.
+`docs/img/11-elbow-k123.png`. Both rows use the book's camera angle, matched by eye to Fig. 4.8 (nearly frontal, slightly from above: elevation 10°, azimuth −100°). Top row: rendered like the book, with lit surfaces, gray fixed pipes and a blue free bend. Bottom row: the same surfaces colored by mean curvature. The results reproduce Fig. 4.8.
 - **k = 1:** the membrane collapses into a thin, twisted funnel. Minimizing area pulls the bend's outer side inward, and the curvature concentrates in a dark band.
 - **k = 2:** a round elbow, joining both pipes tangentially.
 - **k = 3:** an even fuller, more evenly curved elbow.
@@ -192,7 +192,7 @@ On the outer side of the bend (θ = π), the joint angle at the vertical pipe, a
 That is the same law as the straight tube, more pronounced because a 90° turn needs much more bending.
 
 **Why a first version looked flatter than the book's figure.** Two reasons.
-1. *Rendering.* The book's images are lit: brightness follows the surface orientation, which the eye reads as roundness. Colored matplotlib surfaces are unlit, and the first version was seen exactly from the side, in the plane of the bend, which flattens a tube into a band. Hence the lit top row and the oblique camera.
+1. *Rendering.* The book's images are lit: brightness follows the surface orientation, which the eye reads as roundness. Colored matplotlib surfaces are unlit, and the first version was seen exactly from the side, in the plane of the bend, which flattens a tube into a band. Hence the lit top row and the camera matched to the book.
 2. *Geometry: the linearized energies shrink the tube.* The cross-section in the middle of the bend really does get thinner. Thinnest ring radius, starting from 1:
 
 | bend radius (free centerline length) | k = 2 | k = 3 |

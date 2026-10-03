@@ -237,7 +237,7 @@ def figure_elbow():
     """
     V, F, free = pipe_elbow()
     free_face = free[F].all(axis=1)
-    view = (18, -65)                                              # oblique, slightly from above
+    view = (10, -100)                         # matched by eye to Fig. 4.8: nearly frontal, slightly above
     fig = plt.figure(figsize=(12.5, 8.2))
     fig.subplots_adjust(left=0.02, right=0.9, wspace=0.05, hspace=0.12)
     for col, k in enumerate((1, 2, 3)):
