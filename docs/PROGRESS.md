@@ -31,7 +31,7 @@
 - The book PDFs must never enter the repo (public). `.gitignore` excludes `*.pdf`.
 - **Barycentric area is wrong at UV-sphere poles** (4/3 of the Voronoi cell): H = ¾·(1/R) there at any resolution; elsewhere H converges like h². Fixed by M1 (#16).
 - The uniform ‖Lx‖ is a length (≈ 0.12·h), not a curvature; only zero vs non-zero is comparable with the cotangent ‖Lx‖.
-- **Explicit cotangent smoothing is stiff:** stable h = 2.7·10⁻⁵ on the 24×48 UV sphere (uniform: 1.34), set by the pole triangles. Laplacian flow shrinks (r² = r₀² − 4λt on a sphere); the uniform flow also distorts the shape. Linear methods shrink: Laplacian flow (r² = r₀² − 4λt on a sphere) and fairing (bending energy ∝ r² around a tube in a frozen parametrization).
+- **Explicit cotangent smoothing is stiff:** stable h = 2.7·10⁻⁵ on the 24×48 UV sphere (uniform: 1.34), set by the pole triangles; the uniform flow also distorts the shape. Linear methods shrink: Laplacian flow (r² = r₀² − 4λt on a sphere) and fairing (bending energy ∝ r² around a tube in a frozen parametrization).
 - Implicit smoothing is stable for any h but still shrinks (radius × 1/(1 + 2hλ) on the unit sphere); cotan leaves tangential irregularity untouched (roughness floor ≈ 0.088).
 - **Two membranes:** uniform ≈ Eq. 4.8 (harmonic in the connectivity/parameter domain; → x² − y² in case B); cotan from a smooth start ≈ Eq. 4.7 (minimal surface, H → 0, 1.3·10⁻³ from x² − y²). Cotan weights frozen from an input damaged at edge scale corrupt the result (|H| ≈ 47).
 - **Book methods only (user decision):** no weight refresh or reference geometry for now; how to get good cotan weights for a real hole is deferred to #14.
