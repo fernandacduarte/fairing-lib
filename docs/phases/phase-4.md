@@ -128,3 +128,126 @@ Heights alone cannot tell these surfaces apart; `10-two-membranes.png` measures 
 - *An "exact answer" belongs to a specific problem.* x² − y² is exact for Eq. 4.8 over the flat (x, y) domain, not for Eq. 4.7. A first version of this step compared the cotangent result against it, concluded "it does not converge", and "fixed" this by building the weights from the flat grid. That only forced the cotangent solver to answer Eq. 4.8, and such a flat reference does not exist for a real mesh with a hole. It was removed. The correct check for the cotangent membrane is H → 0.
 - *The weights are frozen from the input.* Linearity comes from computing L once. With cotangent weights, a smooth start gives a sensible result in one solve; a start damaged at the scale of the edges does not. Height errors alone can hide this (orange: heights within 2·10⁻³, curvature 47); check H, or look at the mesh. The book's method for hole filling, and ways to obtain good weights without a reference, are discussed in #14.
 - *Measure at the final (x, y).* The free vertices can move in x and y too, so the target height must be evaluated at their new position.
+
+## #11 Thin plate and minimum variation (k = 2, 3)
+
+**Theory → code.** Higher orders minimize higher derivatives (§4.3, p. 60):
+- **k = 2, thin plate:** the bending energy ∫κ₁² + κ₂², linearized to ∫‖x_uu‖² + 2‖x_uv‖² + ‖x_vv‖². Euler–Lagrange: **Δ²x = 0**, i.e. L²x = 0.
+- **k = 3, minimum variation (Eq. 4.9):** penalizes how fast the curvature *changes*. **Δ³x = 0**, i.e. L³x = 0.
+
+Nothing new is needed in the code: `solve_fair(V, F, free, k)` with k = 2 or 3. What is new is **what you get at the border of the free region: C^(k−1) continuity** (Fig. 4.8).
+- k = 1 matches only *positions*: a kink is allowed (C⁰).
+- k = 2 also matches *tangents* (C¹).
+- k = 3 also matches *curvature* (C²).
+
+Why k rings? The equation at a free vertex next to the border involves Lᵏ, which reaches k rings outward (#9). Those rings are fixed, so they carry the boundary information. One ring gives positions; two rings also give a direction (a tangent); three rings also give a bending (a curvature). This is how the discrete method replaces prescribing normals or curvatures (p. 60).
+
+**The setup** (`tube_blend` in the tests and the example): an open tube of radius 1 and height 4.
+- The bottom band (z ≤ 1) is fixed.
+- The top band (z ≥ 3) is fixed and shifted sideways by 1.
+- The middle (1 < z < 3) is free. It starts as a straight *sheared* tube, a clean surface for the frozen cotangent weights (#10).
+- Both bands are 11 rings thick at the test resolution, so all three orders use the same free region, and Lᵏ never reaches the open ends of the tube (a test checks this).
+
+**How to measure C^(k−1) on a mesh.** Take a meridian (the column of vertices at θ = 0) and look at its turning angle at the last fixed vertex of the bottom band. On a smooth curve, the angle between consecutive segments is about curvature × segment length. So refining the mesh tells the cases apart:
+
+| k | joint angle, 41 / 81 / 161 rings (cotangent) | behavior | meaning |
+|---|---|---|---|
+| 1 | 10.6° / 11.9° / 12.5° | stays finite | a kink: C⁰ |
+| 2 | 6.9° / 3.8° / 2.0° | halves each time, ∝ h | tangent continuous: C¹ (the curvature jumps) |
+| 3 | 3.4° / 1.0° / 0.3° | drops about 3.5× each time, ∝ h² | curvature continuous too: C² |
+
+For k = 3 the angle drops like h² because the fixed band is a straight tube (zero curvature along the meridian), and with C² the free profile also starts with zero curvature. The uniform Laplacian behaves the same way (55°, then about ∝ h, then about ∝ h²); its k = 1 kink is much sharper, see Pitfalls.
+
+Tests (`tests/test_fairing.py`): rings 1–3 around the free region end before the open ends. At the test resolution the joint angle orders k = 1 > 2 > 3. Under one refinement, the angle ratio is above 0.9 for k = 1, between 0.4 and 0.7 for k = 2, and below 0.4 for k = 3.
+
+**What the figures show.**
+
+![Tube blend for k = 1, 2, 3](../img/11-tube-k123.png)
+
+`docs/img/11-tube-k123.png`: the same problem with k = 1, 2, 3, seen from the side, colored by mean curvature (the straight tube has H = 0.5). Compare with Fig. 4.8.
+- **k = 1:** a dark ring of very high curvature at each joint, the kink. The free part also pinches inward (a membrane minimizes area, so it shrinks its waist).
+- **k = 2:** the joints are smooth. The curvature changes quickly but without a spike.
+- **k = 3:** the smoothest transition. The curvature fades in from the straight tube's value.
+
+![Meridian profiles](../img/11-profile.png)
+
+`docs/img/11-profile.png`: the θ = 0 meridian in the x–z plane. Gray dots are fixed vertices; dashed lines mark the joints.
+- *Left:* k = 1 bulges inward (toward x < 1) and meets the bands at an angle. k = 2 and 3 are S-shaped curves that leave each band tangentially; k = 3 is a bit straighter in the middle.
+- *Right, zoom on the bottom joint:* the k = 1 profile breaks away from the vertical line with a visible kink. k = 2 and k = 3 start out vertical, tangent to the fixed tube.
+
+**A second example: Fig. 4.8's two pipes at 90°.** `pipe_elbow` in `fairing/mesh.py` builds the book's setting. A vertical pipe and a horizontal pipe, both fixed, are joined by a free bend. The mesh reuses the tube's connectivity; only the ring positions change. Each ring has a center on the bend's axis and an in-plane direction that turns with the bend, so the triangles stay consistently oriented. The free bend starts as an exact quarter torus (bend radius 1.5, pipe radius 1, fixed pipes 1.2 long, proportions close to the book's figure), a clean surface for the frozen weights (#10). It was first written in the example script, and moved to the library once the polyscope viewer needed it too.
+
+![Two pipes at 90 degrees, k = 1, 2, 3](../img/11-elbow-k123.png)
+
+`docs/img/11-elbow-k123.png`. Both rows use the book's camera angle, matched by eye to Fig. 4.8 (nearly frontal, slightly from above: elevation 10°, azimuth −100°). Top row: rendered like the book, with lit surfaces, gray fixed pipes and a blue free bend; a triangle is blue if it has at least one free vertex (see Pitfalls). Bottom row: the same surfaces colored by mean curvature, shown on the free bend and on the two joint rings (the last fixed rings), where the k = 1 kink concentrates its curvature. The results reproduce Fig. 4.8.
+- **k = 1:** the membrane collapses into a thin, twisted funnel. Minimizing area pulls the bend's outer side inward, and the curvature concentrates in a dark band.
+- **k = 2:** a round elbow, joining both pipes tangentially.
+- **k = 3:** an even fuller, more evenly curved elbow.
+
+On the outer side of the bend (θ = π), the joint angle at the vertical pipe, at spacings 0.1 / 0.05 / 0.025, is:
+- k = 1: **70.4° / 70.9° / 71.1°**, a large kink that does not shrink;
+- k = 2: 7.7° / 4.1° / 2.1° (∝ h, C¹);
+- k = 3: 1.38° / 0.39° / 0.10° (≈ ∝ h², C²).
+
+That is the same law as the straight tube, more pronounced because a 90° turn needs much more bending.
+
+**Where do the free region's starting points come from, and what do they do?** Every example builds the free vertices' starting positions itself, before calling `solve_fair`:
+- *Membrane (#10):* the target height plus noise (or no noise, for a "smooth start").
+- *Straight tube blend:* a straight tube *sheared* sideways: each free ring is moved by the sideways shift interpolated linearly in z between the two bands.
+- *Elbow:* an exact quarter torus. Ring m of the bend sits at angle φ_m = m · 90° / n_bend, with center c(φ) = (R_b(1 − cos φ), 0, R_b sin φ) and circle directions e1(φ) = (cos φ, 0, −sin φ), e2 = y; vertex i of the ring is c + r(cos θᵢ e1 + sin θᵢ e2).
+
+Inside `solve_fair`, the starting positions of the free vertices appear in **only one place: the weights**. The right-hand side −A_fc x_c uses the *constrained* positions only. So:
+- with **uniform** weights, the free vertices' starting positions are never used, and any start gives exactly the same result;
+- with **cotangent** weights, the start is the geometry the weights are frozen from, the "parametrization" of #10, so the result inherits it.
+
+The experiment below solves k = 3 from two different starts: the quarter torus (A), and a "chamfer" (B) that puts each bend ring on the straight line between the two joint rings (`chamfered_start` in the example).
+
+![Elbow profiles in the bend plane](../img/11-elbow-profiles.png)
+
+`docs/img/11-elbow-profiles.png`: the outer and inner sides of the pipe in the bend plane (y = 0); gray lines mark the joints.
+- *Left, from the torus start:* the outer side takes a shortcut. In the middle of the bend it ends at 2.19 (k = 2) and 2.43 (k = 3) from the corner, vs 2.50 for the torus. The outer side's curvature, constant 0.40 on the torus, becomes 0.59 near the joints and 0.18 in the middle for k = 2, and 0.49 and 0.33 for k = 3: flatter in the middle, bent near the ends. Two causes: the linearized energy pulls the long outer side inward (the same shrinking tendency as above); and C² continuity forbids a circular arc at the joints anyway (a quarter torus is only C¹ there, its curvature jumping from 0 to 0.40).
+- *Right, k = 3 from two starts:* the cotangent results differ by up to 0.36. From the chamfer, the outer side ends at 2.06 instead of 2.43: the result inherits the flatter start. The uniform result is identical from either start (outer side 2.26). It also shows an artifact: near the inner corner, the uniform inner side *folds over itself* (the small loop at x ≈ 0.9). The inner side of the bend is compressed, so its triangles are much smaller than the outer ones, and the uniform weights ignore that. This is a preview of #12.
+
+So part of why our k = 3 elbow looks close to round is that it started round. With the book's linear method, a different start (whatever the book's authors used, which is not stated) gives a different result.
+
+**Why does our k = 3 elbow look a little less round than Fig. 4.8? An investigation.**
+
+*The curvature, explained.* The quarter torus and the k = 3 surface must both turn the pipe through 90°. Along the outer side of the bend, a planar curve, the curvature integrated along the curve must therefore add up to π/2 in both cases. The torus spreads that turning evenly: its outer side is a circular arc with constant curvature 0.40 (= 1/2.5). That forces a jump from 0, on the straight pipe, to 0.40 right at each joint, so the torus is only C¹ there. The k = 3 solution must be C², so its curvature has to start at 0 at each joint and build up. Since the total turning is fixed, it has to make up for the missing bending elsewhere: its curvature rises to about 0.49 near the joints and dips to about 0.33 in the middle. A second effect adds to this. With the weights frozen from the torus, the linearized energy pulls the long outer side slightly inward, like a stretched rubber band: at 45° it sits 2.43 from the corner instead of 2.50, which flattens the middle further. The result bends more firmly near the pipes and is a little straighter in between. How much depends on the shape the weights were frozen from (see the starting-points experiment above).
+
+*What the original paper says.* Fig. 4.8 is Fig. 2 of Botsch & Kobbelt 2004 ("An Intuitive Framework for Real-Time Freeform Modeling"). The paper gives no mesh, dimensions or parameters for it, but four points are relevant:
+- Section 3 writes the quadratic energies with respect to a parametrization that should be locally as close as possible to isometric: the condition we derived in #10 for the substitute energy to behave like the real one.
+- Its Laplacian (Eq. 4) uses cotangent weights with *Voronoi* areas (citing Meyer et al. 2003); we use barycentric areas. Its constant, 2/A instead of 1/(2A), does not change the solution.
+- The framework *deforms an existing surface*: L is computed once on the original shape, a "handle" region is moved, and only the right-hand side changes. Another figure of the paper bends a straight tube this way. In its "anisotropic bending" section the paper even builds the Laplacian on a different geometry on purpose (a conformal parametrization of the region). So weights from a reference shape are a legitimate design choice *in modeling*, where an original surface exists. In hole filling (#14) there is no original surface for the hole, which is why that idea did not fit #10.
+- Orders above 3 are not recommended because of numerical instability.
+
+*What we tested.*
+- **Voronoi instead of barycentric areas** (a scratch experiment with the mixed Voronoi rule of moonshot M1): on this mesh the two kinds of area differ by less than 0.9%, and the k = 3 results by at most 4·10⁻⁴. This does not explain anything.
+- **Weights from a straight tube**, the likely setting of the paper's figure (`figure_elbow_weights` in the example). The tube has the same rings, so its bottom pipe coincides with ours and the bend rings continue straight up.
+
+![Where do the weights come from?](../img/11-elbow-weights.png)
+
+  `docs/img/11-elbow-weights.png`: rows are the bend radius; columns are the torus start, k = 3 with weights from the torus, and k = 3 with weights from the straight tube. With straight-tube weights the elbow is flatter and thinner, and its **inner side folds into a sharp crease**. A straight tube has all its meridians the same length, and the frozen weights remember that. But in a 90° bend the inner side must become much *shorter* than the outer side. Shortening one side of a tube is a rotation, which a linear system in the positions cannot produce smoothly, so it buckles. The book's figure has a smooth inner side, so it was probably not made this way, at least not with a mesh like ours.
+
+- **The bend's proportions.** All values are for k = 3 unless stated:
+
+| bend radius | thinnest ring, k = 2 / k = 3 | outer side at 45° (torus) | outer curvature near joints / middle (torus) | inner side, largest curvature: torus / torus weights / straight-tube weights |
+|---|---|---|---|---|
+| 1.25 | 0.90 / 0.98 | 2.21 (2.25, −1.7%) | 0.52 / 0.39 (0.44) | 4.0 / 3.9 / 29 |
+| **1.5 (our figure)** | 0.87 / 0.96 | 2.43 (2.50, −2.7%) | 0.49 / 0.33 (0.40) | 2.0 / 2.2 / **515** (a fold) |
+| 2.0 | 0.80 / 0.92 | 2.87 (3.00, −4.4%) | 0.44 / 0.25 (0.33) | 1.0 / 1.1 / 7.2 |
+| 2.5 | 0.69 / 0.87 | 3.29 (3.50, −6.0%) | 0.40 / 0.19 (0.29) | 0.7 / 0.8 / 2.6 |
+| 3.0 | 0.57 / 0.81 | 3.68 (4.00, −8.0%) | 0.38 / 0.14 (0.25) | 0.5 / 0.6 / 1.5 |
+
+  The longer the free bend relative to the pipe radius, the more the cross-section shrinks and the outer middle flattens. The cause is the same as for the tube's pinched waist and for smoothing (#7–#8): the weights are frozen, so a cross-section of radius r is measured against the starting surface's parametrization. Going around the pipe, the second derivative has size ∝ r, so the linearized bending energy ∫‖x_uu‖² + … gets *smaller* when r shrinks, the opposite of the true curvature energy (curvature 1/r). Only the fixed rings at the ends hold the radius. A tight elbow stays close to the torus; a loose one does not.
+- **The length of the fixed pipes changes nothing.** The constrained vertices enter the equations only through A_fc, i.e. through the k rings next to the free region. Pipes 2.0, 1.2 or 0.6 long give the same bend to round-off (largest difference 10⁻¹¹ for k = 3; `test_pipe_length_does_not_change_the_elbow`). Shorter pipes still make the bend *look* fuller, because the eye judges it relative to the pipes and each panel is zoomed to fit its mesh. Our figures now use pipes 1.2 long, close to the book's proportions.
+- **Rendering.** The book's image is smoothly shaded with a specular highlight along the bend; matplotlib shades each triangle flatly, and an early version of our figure was unlit and seen exactly from the side. Hence the lit top row, the camera matched to the book, and the polyscope viewer below.
+
+*Conclusion.* The book's figure is most consistent with a **tight** elbow whose weights come from an already **bent, round** shape: the family of our figure. Most of the visual difference was proportions, framing and shading. What remains is a real but small property of the linear method: k = 3 bends more near the joints and less in the middle (outer side 2.7% inside the torus for our proportions), more so the longer the free region and the farther the start is from the result.
+
+**Viewing it with proper shading.** matplotlib shades each triangle flatly and has no specular highlights, while the book's image has a bright highlight along the bend, a strong roundness cue. `examples/04_polyscope_elbow.py` shows the start and the k = 1, 2, 3 results side by side in polyscope, with smooth shading, gray fixed pipes and a blue free bend (see the README).
+
+**Pitfalls.**
+- *"Smooth" needs refinement to be tested.* At a single resolution, the k = 2 joint angle (6.9°) is not much larger than the turning inside the free region (4.7°), so one picture cannot separate "a small kink" from "a smooth bend". The C^(k−1) claim is about how the angle behaves as h → 0.
+- *Draw the color boundary where the free region really ends.* A first version painted a triangle blue only if *all three* vertices were free. The strip between the last fixed ring and the first free ring was then gray, although two of its vertices had moved. For k = 1 that strip is the start of the kink: the first free ring has radius 0.915 (pipe: 1), and the strip leans 57° inward from the wall. It appeared as a gray "lip" on top of the pipe, with the blue starting on a circle smaller than the pipe. Coloring a triangle blue when it has *any* free vertex puts the color boundary on the last fixed ring, whose radius is exactly the pipe's. (For k = 2 and 3 the joint is smooth, so the two rules look the same: the first strip leans 4° and 0°.)
+- *Enough fixed rings.* k = 3 needs three fixed rings beyond the free region. If the bands were thinner, L³ would reach the tube's open ends and use the one-sided boundary Laplacian (#5).
+- *The uniform membrane pinches much more.* Measured ring by ring (mean distance of a ring's vertices from the ring's own center), the k = 1 neck has radius 0.20 with uniform weights vs 0.62 with cotangent weights (k = 2: 0.65 vs 0.93; k = 3: 0.92 vs 0.96), and the uniform k = 1 joint angle is 55° instead of about 11°. The tube's triangles are stretched (0.196 around × 0.1 along), and the uniform weights ignore that, as in #8 and #12.

@@ -24,13 +24,13 @@ This phase builds the tools that every later experiment relies on: a package, sy
 
 | Mesh | Function | Later test | Book |
 |---|---|---|---|
-| regular grid | `grid` in `fairing/mesh.py:39` | uniform Laplacian is exactly 0 on it (baseline) | Eq. 3.10 |
-| irregular planar grid | `irregular_grid`, `mesh.py:50` | planar ⇒ true Δx = 0; uniform ≠ 0, cotangent = 0 | Eq. 3.7, 3.10, 3.11 |
-| UV sphere, radius R | `uv_sphere`, `mesh.py:74` | H = ½‖Δx‖ ≈ 1/R | Eq. 3.13 |
-| open tube | `tube`, `mesh.py:98` | blend surfaces for k = 1, 2, 3 | Fig. 4.8 |
-| shared triangulation | `_quad_faces`, `mesh.py:17` | one diagonal ⇒ interior valence 6 | — |
+| regular grid | `grid` in `fairing/mesh.py:40` | uniform Laplacian is exactly 0 on it (baseline) | Eq. 3.10 |
+| irregular planar grid | `irregular_grid`, `mesh.py:51` | planar ⇒ true Δx = 0; uniform ≠ 0, cotangent = 0 | Eq. 3.7, 3.10, 3.11 |
+| UV sphere, radius R | `uv_sphere`, `mesh.py:75` | H = ½‖Δx‖ ≈ 1/R | Eq. 3.13 |
+| open tube | `tube`, `mesh.py:125` | blend surfaces for k = 1, 2, 3 | Fig. 4.8 |
+| shared triangulation | `_quad_faces`, `mesh.py:18` | one diagonal ⇒ interior valence 6 | — |
 
-`save_obj` and `load_obj` (`mesh.py:115`, `mesh.py:124`) read and write triangle meshes in OBJ format (indices are 1-based in the file, 0-based in `F`).
+`save_obj` (`mesh.py:184`) and `load_obj` (`mesh.py:193`) read and write triangle meshes in OBJ format (indices are 1-based in the file, 0-based in `F`).
 
 **What the figures show.** No figure yet; the first one (all four meshes) comes in #3.
 
@@ -45,9 +45,9 @@ This phase builds the tools that every later experiment relies on: a package, sy
 
 | Function | What it does |
 |---|---|
-| `plot_mesh`, `viz.py:35` | one mesh with `plot_trisurf`; per-vertex scalars become face colors (mean of the 3 vertices) |
-| `compare`, `viz.py:76` | panels side by side, one shared color scale and colorbar, optional camera per panel |
-| `show_polyscope`, `viz.py:113` | interactive viewer; polyscope is imported only inside this function |
+| `plot_mesh`, `viz.py:36` | one mesh with `plot_trisurf`; per-vertex scalars become face colors (mean of the 3 vertices) |
+| `compare`, `viz.py:82` | panels side by side, one shared color scale and colorbar, optional camera per panel |
+| `show_polyscope`, `viz.py:119` | interactive viewer; polyscope is imported only inside this function |
 | `SEQUENTIAL`, `DIVERGING`, `viz.py:14` | blue ramp for magnitudes; blue–gray–red for signed values, with gray at 0 |
 
 To inspect a mesh interactively, run `examples/01_polyscope_one_mesh.py` (one mesh colored by a scalar) or `examples/01_polyscope_all_meshes.py` (all four meshes side by side). The README explains how to install and use the viewer.
@@ -69,10 +69,10 @@ To inspect a mesh interactively, run `examples/01_polyscope_one_mesh.py` (one me
 
 | Concept | Book | Code |
 |---|---|---|
-| edges (each counted once) | — | `edges`, `fairing/mesh.py:156` |
-| one-ring N₁(vᵢ), valence deg(vᵢ) | §3.3.1, Eq. 3.10 | `adjacency`, `mesh.py:161`; `one_rings`, `mesh.py:175` |
-| boundary: edges with one triangle | — | `boundary_vertices`, `mesh.py:185` |
-| n-ring neighborhood Nₖ, grown from a set | §3.3.1; §4.3 p. 60 | `ring_distance` (BFS), `mesh.py:195`; `k_ring`, `mesh.py:214` |
+| edges (each counted once) | — | `edges`, `fairing/mesh.py:224` |
+| one-ring N₁(vᵢ), valence deg(vᵢ) | §3.3.1, Eq. 3.10 | `adjacency`, `mesh.py:229`; `one_rings`, `mesh.py:243` |
+| boundary: edges with one triangle | — | `boundary_vertices`, `mesh.py:253` |
+| n-ring neighborhood Nₖ, grown from a set | §3.3.1; §4.3 p. 60 | `ring_distance` (BFS), `mesh.py:263`; `k_ring`, `mesh.py:282` |
 
 Checks in `tests/test_topology.py`: grid boundary 2(nx + ny) − 4, sphere 0, tube 2·n_theta. Interior valence 6, and k-ring sizes 1 + 3k(k+1), i.e. 7, 19, 37. The Euler characteristic V − E + F is 1 (disk), 2 (sphere), 0 (open cylinder). Distance from the grid boundary is min(i, j, nx−1−i, ny−1−j).
 

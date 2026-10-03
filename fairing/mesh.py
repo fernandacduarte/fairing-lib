@@ -135,6 +135,48 @@ def tube(n_theta, n_z, radius=1.0, height=2.0):
     return V, _quad_faces(n_theta, n_z, wrap_u=True)
 
 
+def pipe_elbow(n_theta=48, radius=1.0, bend_radius=1.5, pipe_length=1.2, spacing=0.1):
+    """Two pipes at 90 degrees joined by a quarter-torus bend (the setting of Fig. 4.8).
+
+    A vertical pipe (axis z, from z = -pipe_length to 0) and a horizontal pipe
+    (axis x, at height ``bend_radius``) are joined by a bend around the corner
+    point (bend_radius, 0, 0). The mesh reuses the tube's connectivity (angle i
+    on ring j is vertex ``i + n_theta*j``); only the ring positions change.
+    Ring j is a circle of the given radius around a center c_j, spanned by
+    e2 = y and a direction e1_j that turns with the bend, so it stays
+    perpendicular to the pipe's axis and the triangles keep their outward
+    orientation. The bend rings lie on an exact quarter torus.
+
+    Returns ``V, F, bend`` where ``bend`` is a boolean mask of the bend's
+    vertices (the free region of Fig. 4.8); the two straight pipes are the rest.
+    The default proportions (pipes 1.2 long for radius 1) are close to the
+    book's figure; the pipe length does not change the fairing result as long
+    as each pipe has at least k rings (only those enter the equations).
+    """
+    n_bend = int(round(bend_radius * np.pi / 2 / spacing))       # bend segments, each ~ spacing long
+    n_pipe = int(round(pipe_length / spacing))                    # segments per straight pipe
+    centers, e1 = [], []
+    for j in range(n_pipe + 1):                                   # vertical pipe, ends at z = 0
+        centers.append((0, 0, -pipe_length + j * spacing))
+        e1.append((1, 0, 0))
+    for m in range(1, n_bend):                                    # bend: angle phi from 0 to 90 degrees
+        phi = m * (np.pi / 2) / n_bend
+        centers.append((bend_radius * (1 - np.cos(phi)), 0, bend_radius * np.sin(phi)))
+        e1.append((np.cos(phi), 0, -np.sin(phi)))
+    for j in range(n_pipe + 1):                                   # horizontal pipe, along +x
+        centers.append((bend_radius + j * spacing, 0, bend_radius))
+        e1.append((0, 0, -1))
+    centers, e1 = np.array(centers, float), np.array(e1, float)
+    _, F = tube(n_theta, len(centers))
+    theta = 2 * np.pi * np.arange(n_theta) / n_theta
+    circle = (np.cos(theta)[None, :, None] * e1[:, None, :]
+              + np.sin(theta)[None, :, None] * np.array([0.0, 1.0, 0.0]))
+    V = (centers[:, None, :] + radius * circle).reshape(-1, 3)
+    ring = np.repeat(np.arange(len(centers)), n_theta)
+    bend = (ring > n_pipe) & (ring < n_pipe + n_bend)
+    return V, F, bend
+
+
 # ---------------------------------------------------------------------------
 # OBJ I/O
 # ---------------------------------------------------------------------------
