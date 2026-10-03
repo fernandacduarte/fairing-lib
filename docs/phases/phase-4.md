@@ -175,7 +175,7 @@ Tests (`tests/test_fairing.py`): rings 1–3 around the free region end before t
 - *Left:* k = 1 bulges inward (toward x < 1) and meets the bands at an angle. k = 2 and 3 are S-shaped curves that leave each band tangentially; k = 3 is a bit straighter in the middle.
 - *Right, zoom on the bottom joint:* the k = 1 profile breaks away from the vertical line with a visible kink. k = 2 and k = 3 start out vertical, tangent to the fixed tube.
 
-**A second example: Fig. 4.8's two pipes at 90°.** `pipe_elbow` in `examples/04_fairing.py` builds the book's setting. A vertical pipe and a horizontal pipe, both fixed, are joined by a free bend. The mesh reuses the tube's connectivity; only the ring positions change. Each ring has a center on the bend's axis and an in-plane direction that turns with the bend, so the triangles stay consistently oriented. The free bend starts as an exact quarter torus (bend radius 1.5, pipe radius 1), a clean surface for the frozen weights (#10). This helper lives in the example script, not in the library.
+**A second example: Fig. 4.8's two pipes at 90°.** `pipe_elbow` in `fairing/mesh.py` builds the book's setting. A vertical pipe and a horizontal pipe, both fixed, are joined by a free bend. The mesh reuses the tube's connectivity; only the ring positions change. Each ring has a center on the bend's axis and an in-plane direction that turns with the bend, so the triangles stay consistently oriented. The free bend starts as an exact quarter torus (bend radius 1.5, pipe radius 1), a clean surface for the frozen weights (#10). It was first written in the example script, and moved to the library once the polyscope viewer needed it too.
 
 ![Two pipes at 90 degrees, k = 1, 2, 3](../img/11-elbow-k123.png)
 
@@ -203,6 +203,27 @@ That is the same law as the straight tube, more pronounced because a 90° turn n
 | 1.25 (2.0) | 0.90 | 0.98 |
 
    The weights are frozen, so a free cross-section of radius r is measured against the parametrization of the starting surface. Going around the pipe, the second derivative has size ∝ r, so the linearized bending energy ∫‖x_uu‖² + … gets **smaller** when r shrinks. The true curvature energy does the opposite: the curvature around a pipe is 1/r, so a thinner pipe is *more* bent. Only the fixed rings at the ends hold the radius, so the longer the free region relative to the radius, the more it shrinks. The same tendency shows in the pinched waist of the straight tube and in the shrinking of Laplacian smoothing (#7–#8).
+
+**Where do the free region's starting points come from, and what do they do?** Every example builds the free vertices' starting positions itself, before calling `solve_fair`:
+- *Membrane (#10):* the target height plus noise (or no noise, for a "smooth start").
+- *Straight tube blend:* a straight tube *sheared* sideways: each free ring is moved by the sideways shift interpolated linearly in z between the two bands.
+- *Elbow:* an exact quarter torus. Ring m of the bend sits at angle φ_m = m · 90° / n_bend, with center c(φ) = (R_b(1 − cos φ), 0, R_b sin φ) and circle directions e1(φ) = (cos φ, 0, −sin φ), e2 = y; vertex i of the ring is c + r(cos θᵢ e1 + sin θᵢ e2).
+
+Inside `solve_fair`, the starting positions of the free vertices appear in **only one place: the weights**. The right-hand side −A_fc x_c uses the *constrained* positions only. So:
+- with **uniform** weights, the free vertices' starting positions are never used, and any start gives exactly the same result;
+- with **cotangent** weights, the start is the geometry the weights are frozen from, the "parametrization" of #10, so the result inherits it.
+
+The experiment below solves k = 3 from two different starts: the quarter torus (A), and a "chamfer" (B) that puts each bend ring on the straight line between the two joint rings (`chamfered_start` in the example).
+
+![Elbow profiles in the bend plane](../img/11-elbow-profiles.png)
+
+`docs/img/11-elbow-profiles.png`: the outer and inner sides of the pipe in the bend plane (y = 0); gray lines mark the joints.
+- *Left, from the torus start:* the outer side takes a shortcut. In the middle of the bend it ends at 2.19 (k = 2) and 2.43 (k = 3) from the corner, vs 2.50 for the torus. The outer side's curvature, constant 0.40 on the torus, becomes 0.59 near the joints and 0.18 in the middle for k = 2, and 0.49 and 0.33 for k = 3: flatter in the middle, bent near the ends. Two causes: the linearized energy pulls the long outer side inward (the same shrinking tendency as above); and C² continuity forbids a circular arc at the joints anyway (a quarter torus is only C¹ there, its curvature jumping from 0 to 0.40).
+- *Right, k = 3 from two starts:* the cotangent results differ by up to 0.36. From the chamfer, the outer side ends at 2.06 instead of 2.43: the result inherits the flatter start. The uniform result is identical from either start (outer side 2.26). It also shows an artifact: near the inner corner, the uniform inner side *folds over itself* (the small loop at x ≈ 0.9). The inner side of the bend is compressed, so its triangles are much smaller than the outer ones, and the uniform weights ignore that. This is a preview of #12.
+
+So part of why our k = 3 elbow looks close to round is that it started round. With the book's linear method, a different start (whatever the book's authors used, which is not stated) gives a different result.
+
+**Viewing it with proper shading.** matplotlib shades each triangle flatly and has no specular highlights, while the book's image has a bright highlight along the bend, a strong roundness cue. `examples/04_polyscope_elbow.py` shows the start and the k = 1, 2, 3 results side by side in polyscope, with smooth shading, gray fixed pipes and a blue free bend (see the README).
 
 Fig. 4.8 is taken from another paper (Botsch & Kobbelt 2004), and the book does not give its exact setup (bend size, resolution, extent of the free region). So we reproduce its behavior, not necessarily its exact shapes.
 

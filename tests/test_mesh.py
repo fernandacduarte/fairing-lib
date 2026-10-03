@@ -94,3 +94,21 @@ def test_load_obj_rejects_polygons(tmp_path):
     path.write_text("v 0 0 0\nv 1 0 0\nv 1 1 0\nv 0 1 0\nf 1 2 3 4\n")
     with pytest.raises(ValueError):
         load_obj(path)
+
+
+def test_pipe_elbow():
+    from fairing.mesh import pipe_elbow
+    n_theta = 24
+    V, F, bend = pipe_elbow(n_theta=n_theta, bend_radius=1.5, pipe_length=1.0, spacing=0.25)
+    n_rings = len(V) // n_theta
+    assert len(F) == 2 * n_theta * (n_rings - 1)
+    rings = V.reshape(n_rings, n_theta, 3)
+    centers = rings.mean(axis=1)
+    assert np.allclose(np.linalg.norm(rings - centers[:, None], axis=2), 1.0)     # every ring has radius 1
+    # every triangle faces away from the pipe's axis (the center of its first vertex's ring)
+    away = V[F].mean(axis=1) - centers[F[:, 0] // n_theta]
+    assert np.all(np.einsum("ij,ij->i", face_normals(V, F), away) > 0)
+    # the bend is a contiguous block of rings strictly between the two pipes
+    ring_in_bend = bend.reshape(n_rings, n_theta)[:, 0]
+    assert ring_in_bend.any() and not ring_in_bend[0] and not ring_in_bend[-1]
+    assert np.all(np.diff(np.flatnonzero(ring_in_bend)) == 1)

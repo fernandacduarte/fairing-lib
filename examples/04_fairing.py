@@ -5,7 +5,8 @@ Run from the repository root:
     python examples/04_fairing.py
 
 Saves docs/img/09-sparsity.png, docs/img/10-membrane.png,
-docs/img/10-two-membranes.png, docs/img/11-tube-k123.png, docs/img/11-profile.png and docs/img/11-elbow-k123.png.
+docs/img/10-two-membranes.png, docs/img/11-tube-k123.png, docs/img/11-profile.png, docs/img/11-elbow-k123.png and
+docs/img/11-elbow-profiles.png.
 """
 
 from pathlib import Path
@@ -197,45 +198,13 @@ def figure_profile():
     print("saved", IMG / "11-profile.png")
 
 
-def pipe_elbow(n_theta=48, radius=1.0, bend_radius=1.5, pipe_length=2.0, spacing=0.1):
-    """Two pipes at 90 degrees, joined by a quarter-torus bend (the setting of Fig. 4.8).
-
-    A vertical pipe (axis z, z from -pipe_length to 0) and a horizontal pipe (axis x, at
-    height bend_radius) are fixed; the bend between them is free. The mesh reuses the tube's
-    connectivity (ring j, angle i -> vertex i + n_theta*j); only the ring positions change:
-    ring j has a center c_j and an in-plane direction e1_j that turns with the bend (e2 = y).
-    The free bend starts as an exact quarter torus, a clean surface for the frozen weights.
-    """
-    n_bend = int(round(bend_radius * np.pi / 2 / spacing))       # bend segments (≈ spacing long)
-    n_pipe = int(round(pipe_length / spacing))                    # segments per straight pipe
-    centers, e1 = [], []
-    for j in range(n_pipe + 1):                                   # vertical pipe, ends at z = 0
-        centers.append((0, 0, -pipe_length + j * spacing))
-        e1.append((1, 0, 0))
-    for m in range(1, n_bend):                                    # bend: angle phi from 0 to 90 deg
-        phi = m * (np.pi / 2) / n_bend
-        centers.append((bend_radius * (1 - np.cos(phi)), 0, bend_radius * np.sin(phi)))
-        e1.append((np.cos(phi), 0, -np.sin(phi)))                 # stays perpendicular to the axis
-    for j in range(n_pipe + 1):                                   # horizontal pipe, along +x
-        centers.append((bend_radius + j * spacing, 0, bend_radius))
-        e1.append((0, 0, -1))
-    centers, e1 = np.array(centers, float), np.array(e1, float)
-    _, F = mesh.tube(n_theta, len(centers))
-    theta = 2 * np.pi * np.arange(n_theta) / n_theta
-    circle = np.cos(theta)[None, :, None] * e1[:, None, :] + np.sin(theta)[None, :, None] * np.array([0, 1.0, 0])
-    V = (centers[:, None, :] + radius * circle).reshape(-1, 3)
-    ring = np.repeat(np.arange(len(centers)), n_theta)
-    free = (ring > n_pipe) & (ring < n_pipe + n_bend)
-    return V, F, free
-
-
 def figure_elbow():
     """Issue #11 (extra): Fig. 4.8's setting, two pipes at 90 degrees, solved with k = 1, 2, 3.
 
     Top row: rendered like the book (lit surfaces, fixed pipes gray, free bend blue).
     Bottom row: the same surfaces colored by mean curvature (fixed pipes gray).
     """
-    V, F, free = pipe_elbow()
+    V, F, free = mesh.pipe_elbow()
     free_face = free[F].all(axis=1)
     view = (10, -100)                         # matched by eye to Fig. 4.8: nearly frontal, slightly above
     fig = plt.figure(figsize=(12.5, 8.2))
@@ -265,6 +234,67 @@ def figure_elbow():
     print("saved", IMG / "11-elbow-k123.png")
 
 
+def chamfered_start(V, bend, n_theta):
+    """Alternative start for the elbow's free bend: each bend ring placed on the straight
+    line between the two joint rings (a "chamfered" connector instead of a quarter torus)."""
+    rings = V.reshape(-1, n_theta, 3).copy()
+    b = np.flatnonzero(bend.reshape(-1, n_theta)[:, 0])
+    first, last = rings[b[0] - 1], rings[b[-1] + 1]               # the two joint rings (fixed)
+    for i, j in enumerate(b, start=1):
+        t = i / (len(b) + 1)
+        rings[j] = (1 - t) * first + t * last
+    return rings.reshape(-1, 3)
+
+
+def figure_elbow_profiles():
+    """Issue #11 (extra): the elbow's outer and inner meridians in the bend plane (y = 0).
+
+    Left: k = 2, 3 from the quarter-torus start. Right: k = 3 from two different starts
+    (cotangent weights depend on the start; uniform weights do not).
+    """
+    n_theta = 48
+    V, F, bend = mesh.pipe_elbow(n_theta=n_theta)
+    rings = lambda W: W.reshape(-1, n_theta, 3)
+    joints = np.flatnonzero(bend.reshape(-1, n_theta)[:, 0])[[0, -1]] + [-1, 1]
+    V_chamfer = chamfered_start(V, bend, n_theta)
+
+    def meridians(ax, W, color, label, dashed=False, lw=2.0):
+        for i in (n_theta // 2, 0):                                # outer (theta = pi), inner (theta = 0)
+            ax.plot(rings(W)[:, i, 0], rings(W)[:, i, 2], color=color, lw=lw,
+                    dashes=(4, 3) if dashed else (), label=label if i == n_theta // 2 else None)
+
+    fig, (left, right) = plt.subplots(1, 2, figsize=(12, 6.4))
+    meridians(left, V, "#8a8984", "quarter torus (start)", dashed=True, lw=1.5)
+    meridians(left, solve_fair(V, F, bend, 2), "#3987e5", "k = 2")
+    meridians(left, solve_fair(V, F, bend, 3), "#0d366b", "k = 3")
+    left.set_title("from the quarter-torus start:\nthe outer side takes a shortcut")
+
+    meridians(right, V, "#8a8984", "quarter torus (start A)", dashed=True, lw=1.5)
+    meridians(right, V_chamfer, "#d9a38a", "chamfer (start B)", dashed=True, lw=1.5)
+    meridians(right, solve_fair(V, F, bend, 3), "#0d366b", "k = 3, cotangent, from A")
+    meridians(right, solve_fair(V_chamfer, F, bend, 3), "#eb6834", "k = 3, cotangent, from B")
+    meridians(right, solve_fair(V, F, bend, 3, "uniform"), "#86b6ef", "k = 3, uniform (same from A or B)")
+    right.set_title("k = 3 from two different starts:\ncotangent depends on the start, uniform does not")
+
+    for ax in (left, right):
+        for j in joints:                                            # the two joint rings
+            ax.plot(rings(V)[j, [0, n_theta // 2], 0], rings(V)[j, [0, n_theta // 2], 2],
+                    color="#c3c2b7", lw=1, zorder=0)
+        ax.set_aspect("equal")
+        ax.set_xlim(-1.3, 3.6)
+        ax.set_ylim(-1.2, 2.9)
+        ax.set_xlabel("x")
+        ax.set_ylabel("z")
+        for side in ("top", "right"):
+            ax.spines[side].set_visible(False)
+        ax.legend(frameon=False, fontsize=8.5, loc="lower right")
+    fig.suptitle("Elbow in the bend plane (y = 0): outer and inner sides of the pipe; "
+                 "gray lines = the two joints", y=1.0)
+    fig.tight_layout()
+    fig.savefig(IMG / "11-elbow-profiles.png", dpi=150, bbox_inches="tight")
+    print("saved", IMG / "11-elbow-profiles.png")
+
+
 if __name__ == "__main__":
     IMG.mkdir(parents=True, exist_ok=True)
     figure_sparsity()
@@ -273,3 +303,4 @@ if __name__ == "__main__":
     figure_tube_blend()
     figure_profile()
     figure_elbow()
+    figure_elbow_profiles()
