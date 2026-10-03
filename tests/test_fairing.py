@@ -5,7 +5,7 @@ import pytest
 
 from fairing.fairing import fairing_matrix, solve_fair
 from fairing.laplacian import LAPLACIANS, mean_curvature
-from fairing.mesh import add_noise, irregular_grid, k_ring
+from fairing.mesh import add_noise, boundary_vertices, irregular_grid, k_ring, ring_distance, tube
 
 
 def noisy_patch(n=12, seed=0):
@@ -141,3 +141,52 @@ def test_case_B_cotan_from_a_badly_damaged_start_is_corrupted():
     _, H_noisy = saddle_case(81, "cotan", interior_noise=0.02)
     _, H_clean = saddle_case(81, "cotan", interior_noise=0.0)
     assert H_noisy > 100 * H_clean
+
+
+# ---------------------------------------------------------------------------
+# Thin plate and minimum variation, k = 2, 3 (Sec. 4.3, Fig. 4.8)
+# ---------------------------------------------------------------------------
+
+def tube_blend(n_theta, n_z, shift=1.0):
+    """Tube of radius 1 and height 4. Bottom band (z <= 1) fixed, top band (z >= 3) fixed and
+    shifted sideways by `shift`, middle free. The middle starts as a straight sheared tube
+    (a clean start for the frozen cotangent weights, see #10). Both bands are >= 3 rings thick."""
+    V, F = tube(n_theta, n_z, radius=1.0, height=4.0)
+    z = V[:, 2]
+    free = (z > 1 + 1e-9) & (z < 3 - 1e-9)
+    V[:, 0] += shift * np.clip((z - 1) / 2, 0, 1)
+    return V, F, free
+
+
+def joint_turning_angle(W, n_theta, n_z, free):
+    """Turning angle (degrees) of the theta = 0 meridian at the last fixed ring of the bottom band."""
+    meridian = np.arange(n_z) * n_theta
+    j = np.flatnonzero(~free[meridian] & (np.arange(n_z) < n_z // 2)).max()
+    a, b = W[meridian[j]] - W[meridian[j - 1]], W[meridian[j + 1]] - W[meridian[j]]
+    return np.degrees(np.arccos(a @ b / np.linalg.norm(a) / np.linalg.norm(b)))
+
+
+def test_tube_blend_has_enough_fixed_rings_for_k3():
+    # The 3 rings around the free region must be fixed vertices that end before the
+    # tube's open ends; otherwise L^3 would reach the one-sided boundary Laplacian (#9).
+    V, F, free = tube_blend(32, 41)
+    dist = ring_distance(F, np.flatnonzero(free))
+    assert dist[boundary_vertices(F)].min() > 3
+
+
+def test_joint_is_sharper_for_k1_than_for_k2_and_k3():
+    V, F, free = tube_blend(32, 41)
+    angle = {k: joint_turning_angle(solve_fair(V, F, free, k), 32, 41, free) for k in (1, 2, 3)}
+    assert angle[1] > angle[2] > angle[3]
+
+
+@pytest.mark.parametrize("k, low, high", [(1, 0.9, 2.0), (2, 0.4, 0.7), (3, 0.0, 0.4)])
+def test_refinement_reveals_C_k_minus_1_continuity(k, low, high):
+    # Halving the spacing: a kink (C0) keeps its angle; a C1 joint's angle halves (~ h);
+    # a C2 joint's angle drops faster (~ h^2), since the curvature is continuous too.
+    coarse, fine = (32, 41), (64, 81)
+    angles = []
+    for n_theta, n_z in (coarse, fine):
+        V, F, free = tube_blend(n_theta, n_z)
+        angles.append(joint_turning_angle(solve_fair(V, F, free, k), n_theta, n_z, free))
+    assert low < angles[1] / angles[0] < high

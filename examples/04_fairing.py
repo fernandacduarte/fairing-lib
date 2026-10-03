@@ -4,8 +4,8 @@ Run from the repository root:
 
     python examples/04_fairing.py
 
-Saves docs/img/09-sparsity.png, docs/img/10-membrane.png and
-docs/img/10-two-membranes.png.
+Saves docs/img/09-sparsity.png, docs/img/10-membrane.png,
+docs/img/10-two-membranes.png, docs/img/11-tube-k123.png and docs/img/11-profile.png.
 """
 
 from pathlib import Path
@@ -126,8 +126,78 @@ def figure_two_membranes():
     print("saved", IMG / "10-two-membranes.png")
 
 
+def tube_blend(n_theta, n_z, shift=1.0):
+    """Tube (radius 1, height 4): bottom band z <= 1 fixed, top band z >= 3 fixed and shifted
+    sideways by `shift`, middle free, starting as a straight sheared tube (clean start, #10)."""
+    V, F = mesh.tube(n_theta, n_z, radius=1.0, height=4.0)
+    z = V[:, 2]
+    free = (z > 1 + 1e-9) & (z < 3 - 1e-9)
+    V[:, 0] += shift * np.clip((z - 1) / 2, 0, 1)
+    return V, F, free
+
+
+K_COLORS = {1: "#86b6ef", 2: "#3987e5", 3: "#0d366b"}        # k is ordered: one blue ramp, light to dark
+
+
+def figure_tube_blend():
+    """Issue #11: the same blend solved with k = 1, 2, 3 (Fig. 4.8), colored by mean curvature."""
+    n_theta, n_z = 48, 61
+    V, F, free = tube_blend(n_theta, n_z)
+    meshes = [(solve_fair(V, F, free, k), F) for k in (1, 2, 3)]
+    titles = ["k = 1: membrane (C⁰)", "k = 2: thin plate (C¹)", "k = 3: minimum variation (C²)"]
+    scalars = [mean_curvature(W, F) for W, _ in meshes]
+    for H in scalars:
+        H[mesh.boundary_vertices(F)] = np.nan                  # open ends: one-sided Laplacian
+    fig = viz.compare(meshes, titles, scalars, vmin=0, vmax=1.5, views=[(8, -90)] * 3,
+                      panel_size=(3.8, 5.2), edges=False)
+    fig.suptitle("Tube blend: bottom band (z ≤ 1) and shifted top band (z ≥ 3) fixed, middle free.\n"
+                 "Colored by mean curvature H (straight tube: 0.5; ≥ 1.5 saturates)", y=0.95)
+    fig.savefig(IMG / "11-tube-k123.png", dpi=150, bbox_inches="tight")
+    print("saved", IMG / "11-tube-k123.png")
+
+
+def figure_profile():
+    """Issue #11: the meridian profile in the x-z plane; zoom on the bottom joint."""
+    n_theta, n_z = 48, 61
+    V, F, free = tube_blend(n_theta, n_z)
+    right = np.arange(n_z) * n_theta                           # theta = 0 meridian (x > 0 side)
+    fig, (ax, zoom) = plt.subplots(1, 2, figsize=(9.5, 5.6), gridspec_kw={"width_ratios": [0.7, 1.3]})
+    for k in (1, 2, 3):
+        W = solve_fair(V, F, free, k)
+        for a in (ax, zoom):
+            a.plot(W[right, 0], W[right, 2], "-o", color=K_COLORS[k], lw=2, ms=3 if a is zoom else 0,
+                   label=f"k = {k}")
+    fixed = ~free[right]
+    for a in (ax, zoom):
+        a.plot(V[right[fixed], 0], V[right[fixed], 2], "o", color="#8a8984", ms=3.5, zorder=3,
+               label="fixed vertices")
+        a.axhline(1.0, color="#c3c2b7", lw=0.8, ls="--")
+        a.set_xlabel("x")
+        for side in ("top", "right"):
+            a.spines[side].set_visible(False)
+    ax.axhline(3.0, color="#c3c2b7", lw=0.8, ls="--")
+    ax.set_ylabel("z")
+    ax.set_aspect("equal")
+    ax.set_title("meridian profile (θ = 0 side)")
+    ax.legend(frameon=False, loc="lower right", fontsize=9)
+    zoom.set_xlim(0.55, 1.3)
+    zoom.set_ylim(0.55, 1.65)
+    zoom.set_aspect("equal")
+    zoom.set_title("zoom on the bottom joint (z = 1, dashed)")
+    arrow = dict(arrowstyle="-", color="#8a8984", lw=0.8)
+    zoom.annotate("k = 1 leaves the straight\ntube with a kink (C⁰)", xy=(0.985, 1.06), xytext=(0.6, 0.8),
+                  fontsize=9, color="#3d3c39", arrowprops=arrow)
+    zoom.annotate("k = 2, 3 leave it\ntangentially (C¹, C²)", xy=(1.012, 1.1), xytext=(1.06, 0.75),
+                  fontsize=9, color="#3d3c39", arrowprops=arrow)
+    fig.tight_layout()
+    fig.savefig(IMG / "11-profile.png", dpi=150, bbox_inches="tight")
+    print("saved", IMG / "11-profile.png")
+
+
 if __name__ == "__main__":
     IMG.mkdir(parents=True, exist_ok=True)
     figure_sparsity()
     figure_membrane()
     figure_two_membranes()
+    figure_tube_blend()
+    figure_profile()

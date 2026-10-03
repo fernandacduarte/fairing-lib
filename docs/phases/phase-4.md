@@ -128,3 +128,54 @@ Heights alone cannot tell these surfaces apart; `10-two-membranes.png` measures 
 - *An "exact answer" belongs to a specific problem.* x² − y² is exact for Eq. 4.8 over the flat (x, y) domain, not for Eq. 4.7. A first version of this step compared the cotangent result against it, concluded "it does not converge", and "fixed" this by building the weights from the flat grid. That only forced the cotangent solver to answer Eq. 4.8, and such a flat reference does not exist for a real mesh with a hole. It was removed. The correct check for the cotangent membrane is H → 0.
 - *The weights are frozen from the input.* Linearity comes from computing L once. With cotangent weights, a smooth start gives a sensible result in one solve; a start damaged at the scale of the edges does not. Height errors alone can hide this (orange: heights within 2·10⁻³, curvature 47); check H, or look at the mesh. The book's method for hole filling, and ways to obtain good weights without a reference, are discussed in #14.
 - *Measure at the final (x, y).* The free vertices can move in x and y too, so the target height must be evaluated at their new position.
+
+## #11 Thin plate and minimum variation (k = 2, 3)
+
+**Theory → code.** Higher orders minimize higher derivatives (§4.3, p. 60):
+- **k = 2, thin plate:** the bending energy ∫κ₁² + κ₂², linearized to ∫‖x_uu‖² + 2‖x_uv‖² + ‖x_vv‖². Euler–Lagrange: **Δ²x = 0**, i.e. L²x = 0.
+- **k = 3, minimum variation (Eq. 4.9):** penalizes how fast the curvature *changes*. **Δ³x = 0**, i.e. L³x = 0.
+
+Nothing new is needed in the code: `solve_fair(V, F, free, k)` with k = 2 or 3. What is new is **what you get at the border of the free region: C^(k−1) continuity** (Fig. 4.8).
+- k = 1 matches only *positions*: a kink is allowed (C⁰).
+- k = 2 also matches *tangents* (C¹).
+- k = 3 also matches *curvature* (C²).
+
+Why k rings? The equation at a free vertex next to the border involves Lᵏ, which reaches k rings outward (#9). Those rings are fixed, so they carry the boundary information. One ring gives positions; two rings also give a direction (a tangent); three rings also give a bending (a curvature). This is how the discrete method replaces prescribing normals or curvatures (p. 60).
+
+**The setup** (`tube_blend` in the tests and the example): an open tube of radius 1 and height 4.
+- The bottom band (z ≤ 1) is fixed.
+- The top band (z ≥ 3) is fixed and shifted sideways by 1.
+- The middle (1 < z < 3) is free. It starts as a straight *sheared* tube, a clean surface for the frozen cotangent weights (#10).
+- Both bands are 11 rings thick at the test resolution, so all three orders use the same free region, and Lᵏ never reaches the open ends of the tube (a test checks this).
+
+**How to measure C^(k−1) on a mesh.** Take a meridian (the column of vertices at θ = 0) and look at its turning angle at the last fixed vertex of the bottom band. On a smooth curve, the angle between consecutive segments is about curvature × segment length. So refining the mesh tells the cases apart:
+
+| k | joint angle, 41 / 81 / 161 rings (cotangent) | behavior | meaning |
+|---|---|---|---|
+| 1 | 10.6° / 11.9° / 12.5° | stays finite | a kink: C⁰ |
+| 2 | 6.9° / 3.8° / 2.0° | halves each time, ∝ h | tangent continuous: C¹ (the curvature jumps) |
+| 3 | 3.4° / 1.0° / 0.3° | drops about 3.5× each time, ∝ h² | curvature continuous too: C² |
+
+For k = 3 the angle drops like h² because the fixed band is a straight tube (zero curvature along the meridian), and with C² the free profile also starts with zero curvature. The uniform Laplacian behaves the same way (55°, then about ∝ h, then about ∝ h²); its k = 1 kink is much sharper, see Pitfalls.
+
+Tests (`tests/test_fairing.py`): rings 1–3 around the free region end before the open ends. At the test resolution the joint angle orders k = 1 > 2 > 3. Under one refinement, the angle ratio is above 0.9 for k = 1, between 0.4 and 0.7 for k = 2, and below 0.4 for k = 3.
+
+**What the figures show.**
+
+![Tube blend for k = 1, 2, 3](../img/11-tube-k123.png)
+
+`docs/img/11-tube-k123.png`: the same problem with k = 1, 2, 3, seen from the side, colored by mean curvature (the straight tube has H = 0.5). Compare with Fig. 4.8.
+- **k = 1:** a dark ring of very high curvature at each joint, the kink. The free part also pinches inward (a membrane minimizes area, so it shrinks its waist).
+- **k = 2:** the joints are smooth. The curvature changes quickly but without a spike.
+- **k = 3:** the smoothest transition. The curvature fades in from the straight tube's value.
+
+![Meridian profiles](../img/11-profile.png)
+
+`docs/img/11-profile.png`: the θ = 0 meridian in the x–z plane. Gray dots are fixed vertices; dashed lines mark the joints.
+- *Left:* k = 1 bulges inward (toward x < 1) and meets the bands at an angle. k = 2 and 3 are S-shaped curves that leave each band tangentially; k = 3 is a bit straighter in the middle.
+- *Right, zoom on the bottom joint:* the k = 1 profile breaks away from the vertical line with a visible kink. k = 2 and k = 3 start out vertical, tangent to the fixed tube.
+
+**Pitfalls.**
+- *"Smooth" needs refinement to be tested.* At a single resolution, the k = 2 joint angle (6.9°) is not much larger than the turning inside the free region (4.7°), so one picture cannot separate "a small kink" from "a smooth bend". The C^(k−1) claim is about how the angle behaves as h → 0.
+- *Enough fixed rings.* k = 3 needs three fixed rings beyond the free region. If the bands were thinner, L³ would reach the tube's open ends and use the one-sided boundary Laplacian (#5).
+- *The uniform membrane pinches much more.* Measured ring by ring (mean distance of a ring's vertices from the ring's own center), the k = 1 neck has radius 0.20 with uniform weights vs 0.62 with cotangent weights (k = 2: 0.65 vs 0.93; k = 3: 0.92 vs 0.96), and the uniform k = 1 joint angle is 55° instead of about 11°. The tube's triangles are stretched (0.196 around × 0.1 along), and the uniform weights ignore that, as in #8 and #12.

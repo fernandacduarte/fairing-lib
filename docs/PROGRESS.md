@@ -5,10 +5,10 @@
 - [x] Phase 2: #5 uniform Laplacian (PR #21), #6 cotangent Laplacian (PR #22)
 - [x] Phase 3: #7 explicit smoothing (PR #23), #8 implicit smoothing (PR #24)
 - [x] Setup: sparse Cholesky (CHOLMOD via scikit-sparse) for the fairing solver (PR #25)
-- [x] Phase 4: #9 constrained solver (PR #26), #10 membrane (PR #27)
+- [x] Phase 4: #9 constrained solver (PR #26), #10 membrane (PR #27), #11 thin plate / min. variation (PR #28)
 
 ## Next
-- #11 Thin plate and minimum variation, k = 2, 3 (Phase 4)
+- #12 Uniform vs. cotangent Laplacian in fairing, Fig. 4.9 (Phase 4)
 
 ## Decisions
 - **Issue #N = plan step N** (all issues were created before any PR; M1 is #16). Figures are `docs/img/<NN>-<name>.png`.
@@ -36,5 +36,5 @@
 - **Two membranes:** uniform ≈ Eq. 4.8 (harmonic in the connectivity/parameter domain; → x² − y² in case B); cotan from a smooth start ≈ Eq. 4.7 (minimal surface, H → 0, 1.3·10⁻³ from x² − y²). Cotan weights frozen from an input damaged at edge scale corrupt the result (|H| ≈ 47).
 - **Book methods only (user decision):** no weight refresh or reference geometry for now; how to get good cotan weights for a real hole is deferred to #14.
 - scikit-sparse has no wheels: install SuiteSparse first (`brew install suite-sparse` / `apt install libsuitesparse-dev`). On macOS also set `SUITESPARSE_*_DIR` and `CPLUS_INCLUDE_PATH` (README), or clang++ cannot find `<complex>`.
-- Graph distance is not Euclidean: a band of k fixed rings can vary in physical width on irregular meshes.
+- **C^(k−1) is tested by refinement:** the meridian's turning angle at the joint stays finite (k = 1), ∝ h (k = 2), ∝ h² (k = 3). One resolution alone cannot tell a small kink from a smooth bend.
 - Colored matplotlib surfaces are unlit, and face colors average out single-vertex outliers: use numbers for quantitative claims.
