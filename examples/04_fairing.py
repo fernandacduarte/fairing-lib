@@ -6,7 +6,8 @@ Run from the repository root:
 
 Saves docs/img/09-sparsity.png, docs/img/10-membrane.png,
 docs/img/10-two-membranes.png, docs/img/11-tube-k123.png, docs/img/11-profile.png, docs/img/11-elbow-k123.png,
-docs/img/11-elbow-profiles.png and docs/img/11-elbow-weights.png.
+docs/img/11-elbow-profiles.png, docs/img/11-elbow-weights.png and
+docs/img/12-uniform-vs-cotan-fairing.png.
 """
 
 from pathlib import Path
@@ -348,6 +349,53 @@ def figure_elbow_weights():
     print("saved", IMG / "11-elbow-weights.png")
 
 
+def figure_fig49():
+    """Issue #12: thin plate (k = 2) on a graded mesh, uniform vs cotangent (Fig. 4.9).
+
+    Heights z = x^2 - y^2 (biharmonic); the disk of radius 0.3 is free and starts on the
+    exact surface. Seen from above, cropped to the central region.
+    """
+    V, F = mesh.graded_grid(41, 41, strength=0.7)
+    V[:, 2] = saddle(V[:, 0], V[:, 1])
+    r = np.linalg.norm(V[:, :2], axis=1)
+    free = r < 0.3
+    results = {"uniform": solve_fair(V, F, free, 2, "uniform"), "cotan": solve_fair(V, F, free, 2, "cotan")}
+
+    keep = (np.abs(V[F][:, :, :2]) < 0.42).all(axis=(1, 2))              # crop around the free disk
+    used, Fc = np.unique(F[keep], return_inverse=True)
+    Fc = Fc.reshape(-1, 3)
+    crop = lambda W: W[used]
+
+    fig = plt.figure(figsize=(15, 4.6))
+    top = dict(elev=90, azim=-90)
+    ax = fig.add_subplot(1, 4, 1, projection="3d")
+    face_free = free[used][Fc].any(axis=1)
+    for faces, color in ((Fc[~face_free], "#f0efec"), (Fc[face_free], "#cde2fb")):
+        ax.plot_trisurf(*crop(V).T, triangles=faces, color=color, shade=False, edgecolor="#52514e", linewidth=0.3)
+    viz._set_equal_aspect(ax, crop(V))
+    ax.view_init(**top)
+    ax.set_axis_off()
+    ax.set_title("input mesh: density varies in bands\n(free disk in blue)")
+
+    panels = [("exact surface x² − y²", V), ("thin plate, uniform weights", results["uniform"]),
+              ("thin plate, cotangent weights", results["cotan"])]
+    for i, (title, W) in enumerate(panels):
+        ax = fig.add_subplot(1, 4, i + 2, projection="3d")
+        H = mean_curvature(W, F)[used]
+        err = np.abs(W[free, 2] - saddle(W[free, 0], W[free, 1])).max()
+        subtitle = "" if W is V else f"\nmax |z − (x² − y²)| = {err:.1e}"
+        _, surf = viz.plot_mesh(crop(W), Fc, H, ax, vmin=0, vmax=0.4, colorbar=False, edges=False,
+                                title=f"{title}{subtitle}", **top)
+    for a in fig.axes:
+        a.set_proj_type("ortho")                                   # no perspective: squares stay square
+    cax = fig.add_axes([0.92, 0.2, 0.01, 0.55])
+    fig.colorbar(surf, cax=cax, label="mean curvature H (≥ 0.4 saturates)")
+    fig.suptitle("Fig. 4.9 setting: thin plate (k = 2) on a mesh of varying density, colored by mean curvature",
+                 y=1.02)
+    fig.savefig(IMG / "12-uniform-vs-cotan-fairing.png", dpi=150, bbox_inches="tight")
+    print("saved", IMG / "12-uniform-vs-cotan-fairing.png")
+
+
 if __name__ == "__main__":
     IMG.mkdir(parents=True, exist_ok=True)
     figure_sparsity()
@@ -358,3 +406,4 @@ if __name__ == "__main__":
     figure_elbow()
     figure_elbow_profiles()
     figure_elbow_weights()
+    figure_fig49()

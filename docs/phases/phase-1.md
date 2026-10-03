@@ -26,11 +26,11 @@ This phase builds the tools that every later experiment relies on: a package, sy
 |---|---|---|---|
 | regular grid | `grid` in `fairing/mesh.py:40` | uniform Laplacian is exactly 0 on it (baseline) | Eq. 3.10 |
 | irregular planar grid | `irregular_grid`, `mesh.py:51` | planar ⇒ true Δx = 0; uniform ≠ 0, cotangent = 0 | Eq. 3.7, 3.10, 3.11 |
-| UV sphere, radius R | `uv_sphere`, `mesh.py:75` | H = ½‖Δx‖ ≈ 1/R | Eq. 3.13 |
-| open tube | `tube`, `mesh.py:125` | blend surfaces for k = 1, 2, 3 | Fig. 4.8 |
+| UV sphere, radius R | `uv_sphere`, `mesh.py:95` | H = ½‖Δx‖ ≈ 1/R | Eq. 3.13 |
+| open tube | `tube`, `mesh.py:145` | blend surfaces for k = 1, 2, 3 | Fig. 4.8 |
 | shared triangulation | `_quad_faces`, `mesh.py:18` | one diagonal ⇒ interior valence 6 | — |
 
-`save_obj` (`mesh.py:184`) and `load_obj` (`mesh.py:193`) read and write triangle meshes in OBJ format (indices are 1-based in the file, 0-based in `F`).
+`save_obj` (`mesh.py:204`) and `load_obj` (`mesh.py:213`) read and write triangle meshes in OBJ format (indices are 1-based in the file, 0-based in `F`).
 
 **What the figures show.** No figure yet; the first one (all four meshes) comes in #3.
 
@@ -69,10 +69,10 @@ To inspect a mesh interactively, run `examples/01_polyscope_one_mesh.py` (one me
 
 | Concept | Book | Code |
 |---|---|---|
-| edges (each counted once) | — | `edges`, `fairing/mesh.py:224` |
-| one-ring N₁(vᵢ), valence deg(vᵢ) | §3.3.1, Eq. 3.10 | `adjacency`, `mesh.py:229`; `one_rings`, `mesh.py:243` |
-| boundary: edges with one triangle | — | `boundary_vertices`, `mesh.py:253` |
-| n-ring neighborhood Nₖ, grown from a set | §3.3.1; §4.3 p. 60 | `ring_distance` (BFS), `mesh.py:263`; `k_ring`, `mesh.py:282` |
+| edges (each counted once) | — | `edges`, `fairing/mesh.py:244` |
+| one-ring N₁(vᵢ), valence deg(vᵢ) | §3.3.1, Eq. 3.10 | `adjacency`, `mesh.py:249`; `one_rings`, `mesh.py:263` |
+| boundary: edges with one triangle | — | `boundary_vertices`, `mesh.py:273` |
+| n-ring neighborhood Nₖ, grown from a set | §3.3.1; §4.3 p. 60 | `ring_distance` (BFS), `mesh.py:283`; `k_ring`, `mesh.py:302` |
 
 Checks in `tests/test_topology.py`: grid boundary 2(nx + ny) − 4, sphere 0, tube 2·n_theta. Interior valence 6, and k-ring sizes 1 + 3k(k+1), i.e. 7, 19, 37. The Euler characteristic V − E + F is 1 (disk), 2 (sphere), 0 (open cylinder). Distance from the grid boundary is min(i, j, nx−1−i, ny−1−j).
 

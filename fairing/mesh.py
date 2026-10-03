@@ -72,6 +72,26 @@ def irregular_grid(nx, ny, size=1.0, jitter=0.15, seed=0):
     return V, F
 
 
+def graded_grid(nx, ny, size=1.0, strength=0.7):
+    """Planar grid like :func:`grid` whose vertex density varies smoothly (bands).
+
+    Each coordinate is warped by ``x = u + s sin(4 pi u / size) size / (4 pi)``
+    for u in [-size/2, size/2]. The spacing is then scaled by
+    ``1 + s cos(4 pi u / size)``, so dense bands (around u = +-size/4) alternate
+    with sparse ones (center and edges), with a density ratio of (1 + s)/(1 - s).
+    The square outline and its corners stay put (boundary vertices only slide
+    along it), the connectivity is the regular grid's,
+    and ``strength < 1`` keeps every triangle correctly oriented (the map is
+    monotone). This is the "varying vertex density" setting of Fig. 4.9.
+    """
+    if not 0 <= strength < 1:
+        raise ValueError("strength must be in [0, 1) to keep the warp monotone")
+    V, F = grid(nx, ny, size)
+    warp = lambda u: u + strength * np.sin(4 * np.pi * u / size) * size / (4 * np.pi)
+    V[:, 0], V[:, 1] = warp(V[:, 0]), warp(V[:, 1])
+    return V, F
+
+
 def uv_sphere(n_lat, n_lon, radius=1.0):
     """UV sphere with ``n_lat`` latitude bands and ``n_lon`` longitude segments.
 

@@ -112,3 +112,20 @@ def test_pipe_elbow():
     ring_in_bend = bend.reshape(n_rings, n_theta)[:, 0]
     assert ring_in_bend.any() and not ring_in_bend[0] and not ring_in_bend[-1]
     assert np.all(np.diff(np.flatnonzero(ring_in_bend)) == 1)
+
+
+def test_graded_grid():
+    from fairing.mesh import graded_grid
+    V0, F0 = grid(21, 21)
+    V, F = graded_grid(21, 21, strength=0.7)
+    assert np.array_equal(F, F0)
+    on_boundary = (np.abs(V0[:, :2]) == 0.5).any(axis=1)
+    assert np.allclose(np.abs(V[on_boundary, :2]).max(axis=1), 0.5)  # boundary vertices stay on the square
+    corners = (np.abs(V0[:, :2]) == 0.5).all(axis=1)
+    assert np.allclose(V[corners], V0[corners])                     # and the corners do not move
+    assert np.all(face_normals(V, F)[:, 2] > 0)                     # no flipped triangle
+    x = np.unique(V[:, 0].round(12))
+    spacing = np.diff(x)
+    assert spacing.max() / spacing.min() > 4                        # density ratio (1 + s) / (1 - s) ~ 5.7
+    with pytest.raises(ValueError):
+        graded_grid(5, 5, strength=1.0)
