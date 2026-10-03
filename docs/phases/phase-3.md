@@ -26,7 +26,7 @@ So for this pattern h_max = 1/λ. The factor −2 here is an *eigenvalue* of L: 
 
 With h = 1.1·h_max, that pattern is multiplied by 1 − 1.1·2 = −1.2 per step: this is the ×1.2 growth, with alternating sign, seen in `07-explicit-unstable.png`.
 
-**How the code computes it** (`explicit_step_limit`, `fairing/smoothing.py:48–49`). We need only one number, the most negative eigenvalue of L. Two details:
+**How the code computes it** (`explicit_step_limit`, `fairing/smoothing.py:48–50`). We need only one number, the most negative eigenvalue of L. Two details:
 - L = D·M is not symmetric, but S = D^½·M·D^½ is, and it has the same eigenvalues, since S = D^−½·L·D^½ is the same operator written in rescaled coordinates. Symmetric matrices have real eigenvalues and fast dedicated solvers.
 - All eigenvalues are ≤ 0, so the most negative one is the one with the largest magnitude. `scipy.sparse.linalg.eigsh(S, k=1, which="LM")` finds just that one, without computing the others.
 
@@ -44,8 +44,8 @@ A step of hλ = 1 with the uniform Laplacian moves every vertex exactly onto its
 | Book | Formula | Code |
 |---|---|---|
 | §4.2, Eq. 4.6 | x ← x + hλ·Lx, L rebuilt from the current x | `explicit_smoothing`, `fairing/smoothing.py:29` |
-| §4.2 ("sufficiently small h") | h_max = 2/(λ\|μ_min\|), μ_min from the symmetric D^½MD^½ | `explicit_step_limit`, `smoothing.py:48–49` |
-| — | noise measure: mean angle between adjacent face normals | `roughness`, `smoothing.py:52` |
+| §4.2 ("sufficiently small h") | h_max = 2/(λ\|μ_min\|), μ_min from the symmetric D^½MD^½ | `explicit_step_limit`, `smoothing.py:48–50` |
+| — | noise measure: mean angle between adjacent face normals | `roughness`, `smoothing.py:81` |
 
 Tests (`tests/test_smoothing.py`): h_max matches a dense eigenvalue computation; at hλ = 1 the uniform step lands on the centroid; smoothing removes most of the noise's excess roughness with either Laplacian; 0.95 × h_max stays bounded for 300 steps, while 1.05 × h_max grows past 10³.
 
@@ -76,3 +76,53 @@ Left: the mesh at the two marked steps of that run.
 - *Pick the measure that sees the problem.* The first version of the blow-up figure plotted the largest coordinate. It stays flat until step ~22, although the mesh is already wrecked by then: the zig-zag is larger than an edge long before it changes the overall size. The mean ‖Lx‖ measures the zig-zag directly and shows the ×1.2 growth from the start.
 - *The obvious noise measure failed.* The spread of the vertex radii *increased* under uniform smoothing, because the shape stops being a sphere even as the noise vanishes. A local measure (angles between neighboring normals) separates "noise" from "shape". On coarse meshes, compare it with the clean mesh's value, since faceting alone makes it non-zero.
 - *A capped color scale.* The noisy H has a long tail (up to ~40), so the figure caps the scale at 4. Without the cap, every panel looks equally pale.
+
+## #8 Implicit Laplacian smoothing
+
+**Theory → code.** Implicit Euler evaluates the Laplacian at the *new* positions: x' = x + hλ·Lx', i.e. **(I − hλL) x' = x** (§4.2, p. 55). Instead of a simple update, each step now solves a sparse linear system, once for each of x, y and z.
+
+**Why there is no h_max anymore.** Use the same eigenvector picture as for h_max (#7). For a pattern with Lx = μx, the implicit step gives x' − hλμx' = x, so x' = x / (1 − hλμ). The factor **1/(1 − hλμ)** lies between 0 and 1 for every μ ≤ 0 and every h > 0:
+
+| pattern | μ | explicit factor 1 + hλμ | implicit factor 1/(1 − hλμ) |
+|---|---|---|---|
+| smooth (e.g. the sphere itself) | ≈ 0 | ≈ 1 (kept) | ≈ 1 (kept) |
+| noise | very negative | can be < −1 → explodes | ≈ 0 → removed |
+
+So a large h simply removes more of the high-frequency patterns; it never amplifies anything. Implicit Euler is "unconditionally stable".
+
+**Making the system symmetric.** I − hλL = I − hλDM is not symmetric, because D rescales the rows. Multiplying both sides by D⁻¹ (App. A.1, the same idea as Eq. A.2) gives
+
+  **(D⁻¹ − hλM) x' = D⁻¹x**.
+
+M is symmetric and D⁻¹ is diagonal, so the matrix is symmetric. It is also positive definite: D⁻¹ has positive entries (the vertex degrees, or 2Aᵢ for cotan), and −M is positive semi-definite. Symmetric positive definite systems are the easy, robust kind (App. A).
+
+| Book | Formula | Code |
+|---|---|---|
+| App. A.1 | D⁻¹ = diag(1/wᵢ) | `fairing/smoothing.py:74` |
+| §4.2, App. A.1 | factorize D⁻¹ − hλM once per step | `smoothing.py:75` |
+| App. A.1 | right-hand side D⁻¹x | `smoothing.py:76` |
+| §4.2 | solve for x', y', z' with the same factorization | `smoothing.py:77` |
+| Fig. 4.6 setting | exact sphere, vertices moved *along* it | `irregular_sphere`, `fairing/mesh.py:99` |
+
+Tests (`tests/test_smoothing.py`): D⁻¹ − hλM is symmetric and passes a Cholesky factorization. The symmetric solve also satisfies the original (I − hλL)x' = x. For tiny h, implicit and explicit agree, as two first-order methods should. Far above h_max (10× for uniform, 300× for cotan) one implicit step stays bounded and removes most of the noise. On an irregular sphere, the cotangent flow changes triangle angles by < 0.5° and the uniform flow by > 5°.
+
+**What the figures show.**
+
+![One large step: explicit vs implicit](../img/08-implicit-large-h.png)
+
+`docs/img/08-implicit-large-h.png`: the noisy sphere of #7, one cotangent step with h = 0.01, about 338 × h_max.
+- **Explicit** (middle): the zig-zag patterns are multiplied by up to |1 − 338·2| ≈ 675 in a single step, and the sphere sprouts spikes.
+- **Implicit** (right): the same step size removes most of the noise (roughness 0.274 → 0.097), better than 100 explicit steps did in #7.
+
+![Uniform vs cotangent: triangle shapes](../img/08-uniform-vs-cotan-shapes.png)
+
+`docs/img/08-uniform-vs-cotan-shapes.png`, the idea of Fig. 4.6: an *exact* sphere with irregular triangles (`irregular_sphere`), so the only thing smoothing can change is the size and the triangulation. The front patch is shown head-on, and color = how far each vertex slid *along* the sphere.
+- **Uniform:** vertices slide by 1.26° on average (a sixth of the grid spacing), toward their neighbor centroids, and the rows straighten out: the triangulation is being regularized.
+- **Cotangent:** sliding is 0.01°, and the wireframe is the input's, just slightly smaller. Its Lx points along the normal (Δx = −2H·n), so it can only shrink the sphere, never reshape the triangles.
+
+**Pitfalls.**
+- *Implicit smoothing still shrinks.* On the unit sphere, Lx ≈ −2x, so one step scales the sphere by 1/(1 + 2hλ). For h = 0.01 that predicts a radius of 0.980, and we measure 0.981. With h = 0.1 the radius drops to 0.84. Stable does not mean shape-preserving.
+- *One big step is not the same as many small ones.* L is built from the mesh at the start of the step. Ten steps of h = 0.001 smooth a little better (roughness 0.085) than one step of h = 0.01 (0.097), at the same shrinking, because each small step uses an operator rebuilt from a smoother mesh.
+- *Cotangent smoothing leaves tangential noise alone.* After implicit cotan smoothing the roughness levels off near 0.087, not at the clean sphere's 0.073. An exact sphere with only tangential jitter has roughness 0.088: what remains is irregular vertex *spacing*, which the cotangent flow intentionally does not change (that is the right panel above).
+- *SciPy has no sparse Cholesky.* `factorized` uses a general sparse LU (SuperLU). It works on our SPD matrix, but it does not exploit the symmetry; App. A recommends sparse Cholesky for speed.
+- *Positive definiteness needs −M ⪰ 0.* That holds for the uniform weights and for cotangent weights on reasonable meshes. Strongly obtuse triangles can make cotangent weights negative (§3.3.4), and then the guarantee can fail.

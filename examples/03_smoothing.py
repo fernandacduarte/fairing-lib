@@ -4,7 +4,8 @@ Run from the repository root:
 
     python examples/03_smoothing.py
 
-Saves docs/img/07-explicit-iters.png and docs/img/07-explicit-unstable.png.
+Saves docs/img/07-explicit-iters.png, docs/img/07-explicit-unstable.png,
+docs/img/08-implicit-large-h.png and docs/img/08-uniform-vs-cotan-shapes.png.
 """
 
 from pathlib import Path
@@ -16,7 +17,7 @@ import numpy as np
 
 from fairing import mesh, viz
 from fairing.laplacian import mean_curvature, uniform_laplacian
-from fairing.smoothing import explicit_smoothing, explicit_step_limit, roughness
+from fairing.smoothing import explicit_smoothing, explicit_step_limit, implicit_smoothing, roughness
 
 IMG = Path(__file__).resolve().parents[1] / "docs" / "img"
 
@@ -103,7 +104,62 @@ def figure_explicit_unstable():
     print("saved", IMG / "07-explicit-unstable.png")
 
 
+def figure_implicit_large_h():
+    """Issue #8: one step with h ~ 340 x h_max. Explicit explodes; implicit smooths."""
+    V0, F = noisy_sphere()
+    h_max = explicit_step_limit(V0, F, laplacian="cotan")
+    h = 0.01
+    explicit = explicit_smoothing(V0, F, h, laplacian="cotan")
+    implicit = implicit_smoothing(V0, F, h, laplacian="cotan")
+    meshes = [(V0, F), (explicit, F), (implicit, F)]
+    titles = ["noisy input",
+              f"explicit, 1 step\nh = {h} ≈ {h / h_max:.0f} × h_max",
+              f"implicit, 1 step, same h\nroughness {roughness(V0, F):.3f} → {roughness(implicit, F):.3f}"]
+    fig = viz.compare(meshes, titles, [mean_curvature(V, F) for V, _ in meshes],
+                      vmin=0, vmax=4, panel_size=(4.0, 4.2))
+    fig.suptitle("Cotangent Laplacian, colored by mean curvature H (true value 1, ≥ 4 saturates)", y=1.0)
+    fig.savefig(IMG / "08-implicit-large-h.png", dpi=150, bbox_inches="tight")
+    print("saved", IMG / "08-implicit-large-h.png")
+
+
+def crop(V, F, keep_face):
+    """Sub-mesh made of the selected faces, with vertices re-indexed."""
+    F = F[keep_face]
+    used, F = np.unique(F, return_inverse=True)
+    return V[used], F.reshape(-1, 3), used
+
+
+def figure_shapes():
+    """Issue #8, in the spirit of Fig. 4.6: uniform drifts vertices tangentially, cotangent does not."""
+    V0, F = mesh.irregular_sphere(24, 48, jitter=0.15, seed=0)
+    runs = [("input: exact sphere,\nirregular triangles", V0),
+            ("uniform, implicit, h = 5", implicit_smoothing(V0, F, 5.0, laplacian="uniform")),
+            ("cotangent, implicit, h = 0.05", implicit_smoothing(V0, F, 0.05, laplacian="cotan"))]
+    # front patch around the equator, chosen on the input so every panel shows the same triangles
+    c = V0[F].mean(axis=1)
+    c /= np.linalg.norm(c, axis=1, keepdims=True)
+    patch = (c[:, 0] > 0.8) & (np.abs(c[:, 2]) < 0.45)
+    unit0 = V0 / np.linalg.norm(V0, axis=1, keepdims=True)
+
+    meshes, scalars, titles = [], [], []
+    for title, V in runs:
+        unit = V / np.linalg.norm(V, axis=1, keepdims=True)
+        drift = np.degrees(np.arccos(np.clip((unit * unit0).sum(axis=1), -1, 1)))   # sliding along the sphere
+        Vp, Fp, used = crop(V, F, patch)
+        meshes.append((Vp, Fp))
+        scalars.append(None if V is V0 else drift[used])
+        titles.append(title if V is V0 else f"{title}\nmean tangential drift {drift.mean():.2f}°")
+    fig = viz.compare(meshes, titles, scalars, views=[(0, 0)] * 3, panel_size=(4.0, 4.4),
+                      color="#f0efec", shade=False)               # flat light input panel
+    fig.suptitle("Front patch of a sphere after one implicit step; color = how far each vertex slid along "
+                 "the sphere (degrees; grid spacing 7.5°)", y=1.0)
+    fig.savefig(IMG / "08-uniform-vs-cotan-shapes.png", dpi=150, bbox_inches="tight")
+    print("saved", IMG / "08-uniform-vs-cotan-shapes.png")
+
+
 if __name__ == "__main__":
     IMG.mkdir(parents=True, exist_ok=True)
     figure_explicit_iterations()
     figure_explicit_unstable()
+    figure_implicit_large_h()
+    figure_shapes()
