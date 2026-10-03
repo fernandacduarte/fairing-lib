@@ -251,3 +251,44 @@ So part of why our k = 3 elbow looks close to round is that it started round. Wi
 - *Draw the color boundary where the free region really ends.* A first version painted a triangle blue only if *all three* vertices were free. The strip between the last fixed ring and the first free ring was then gray, although two of its vertices had moved. For k = 1 that strip is the start of the kink: the first free ring has radius 0.915 (pipe: 1), and the strip leans 57° inward from the wall. It appeared as a gray "lip" on top of the pipe, with the blue starting on a circle smaller than the pipe. Coloring a triangle blue when it has *any* free vertex puts the color boundary on the last fixed ring, whose radius is exactly the pipe's. (For k = 2 and 3 the joint is smooth, so the two rules look the same: the first strip leans 4° and 0°.)
 - *Enough fixed rings.* k = 3 needs three fixed rings beyond the free region. If the bands were thinner, L³ would reach the tube's open ends and use the one-sided boundary Laplacian (#5).
 - *The uniform membrane pinches much more.* Measured ring by ring (mean distance of a ring's vertices from the ring's own center), the k = 1 neck has radius 0.20 with uniform weights vs 0.62 with cotangent weights (k = 2: 0.65 vs 0.93; k = 3: 0.92 vs 0.96), and the uniform k = 1 joint angle is 55° instead of about 11°. The tube's triangles are stretched (0.196 around × 0.1 along), and the uniform weights ignore that, as in #8 and #12.
+
+## #12 Uniform vs cotangent Laplacian in fairing (Fig. 4.9)
+
+**Theory → code.** Fig. 4.9 (§4.3, p. 60) solves the thin-plate equation Δ²x = 0 with both discretizations of the Laplacian. On an irregular mesh, the uniform one "yields artifacts in regions of varying high vertex density", while the cotangent one gives the expected result. No new solver code is needed: `solve_fair(V, F, free, 2, "uniform" | "cotan")`.
+
+**Why it happens, in terms of #10.** The linear method minimizes an energy relative to a *parametrization*, and the weights define that parametrization.
+- **Cotangent weights** are computed from the geometry, so the parametrization is the surface itself, whatever the density of its vertices.
+- **Uniform weights** ignore the geometry: they treat every edge as having the same length. Their implicit parametrization is the *connectivity*, i.e. the regular grid of indices (u, v). On a mesh with uniform density that is a faithful picture of the surface. Where the density varies, it is a *distorted* picture. Smooth data, seen through the distortion, is no longer smooth, and the thin plate in (u, v) reproduces the distortion as bumps. The free vertices also slide sideways, toward an "evenly spaced in (u, v)" layout.
+
+**The setup.**
+- *Mesh:* `graded_grid` (`fairing/mesh.py:75`), a regular grid warped by x = u + s·sin(4πu)/(4π), and the same in y. Spacing is multiplied by 1 + s·cos(4πu), so dense bands (around x, y = ±0.25) alternate with sparse ones. With s = 0.7 the spacing ranges from 0.0075 to 0.0425 (density ratio 5.7). The square outline stays put, and the warp is monotone, so no triangle flips.
+- *Heights:* z = x² − y². It is harmonic, hence also biharmonic, so it is the exact k = 2 answer for the flat (x, y) domain.
+- *Free region:* the disk of radius 0.3, starting on the exact surface ("remove and refill"), with all other vertices fixed.
+
+| mesh (41 × 41 / 81 × 81) | uniform: max error, mean \|H\| | cotangent: max error, mean \|H\| | saddle's mean \|H\| |
+|---|---|---|---|
+| regular (s = 0) | 8·10⁻¹⁵ / 10⁻¹³, 0.070 | 1.5·10⁻⁴ / 1.4·10⁻⁴, 0.062 | 0.070 |
+| graded (s = 0.7) | **1.0·10⁻² / 9.5·10⁻³, 0.58–0.61** | 1.4·10⁻⁴ / 1.3·10⁻⁴, 0.086–0.089 | 0.094–0.096 |
+
+(The error is max |z − (x² − y²)| on the free disk, measured at the final (x, y); mean |H| is taken over the inner disk r < 0.27.)
+- *On the regular grid* the uniform result is exact, to round-off: the connectivity is a faithful picture of the flat domain.
+- *On the graded grid* the uniform error is about 70× the cotangent one, and its mean curvature is 6× the saddle's. **Refining does not help** (1.0·10⁻² → 9.5·10⁻³): this is a modeling error, not a discretization error, since the graded mesh distorts the uniform "domain" the same way at every resolution. The uniform free vertices also slide sideways by up to 0.034, more than an original grid spacing; the cotangent ones do not move sideways.
+- *Cotangent* keeps the small linearization gap of #10 (about 1.4·10⁻⁴; its weights come from the curved saddle, not the flat domain), whatever the density.
+
+Tests (`tests/test_fairing.py`): uniform is exact on the regular grid. On the graded grid the uniform error is more than 10× the cotangent error, uniform has more than twice the saddle's mean curvature, and cotangent stays within 25% of it. The uniform error does not shrink with refinement. `tests/test_mesh.py` checks `graded_grid` (outline and corners fixed, no flipped triangle, density ratio, rejects s ≥ 1).
+
+**What the figures show.**
+
+![Uniform vs cotangent thin plate on a graded mesh](../img/12-uniform-vs-cotan-fairing.png)
+
+`docs/img/12-uniform-vs-cotan-fairing.png`: seen from above (orthographic), cropped around the free disk; panels 2–4 share one curvature scale.
+1. The input mesh: dense bands cross the free disk (blue) near its rim.
+2. The exact saddle: its curvature pattern, an X of low curvature along the diagonals.
+3. Uniform thin plate: four dark blobs of spurious curvature inside the disk, exactly where the dense bands cross it, and an error of 1.0·10⁻².
+4. Cotangent thin plate: the saddle's pattern is reproduced, with an error of 1.4·10⁻⁴.
+
+**Pitfalls.**
+- *Uniform weights are not "wrong", they answer another question.* They give the thin plate over the mesh's connectivity. When the connectivity is a faithful picture of the surface (regular sampling), that is the right answer, and here it is even exact. The artifacts come from the *sampling*, not from the surface, so the same shape can look fine or bumpy depending on how it was meshed.
+- *Refinement does not fix modeling errors.* A discretization error shrinks with h; this one does not, because the density *ratio* stays the same.
+- *Perspective distorts top views.* matplotlib's 3D axes use a perspective camera, so a square seen from above looked barrel-shaped. Top-down panels use an orthographic projection.
+- *We have seen this before.* The same insensitivity to geometry produced the uniform Laplacian's flaw on flat irregular grids (#5), its tangential drift in smoothing (#8), its pinched tube (#11), and the fold on the elbow's compressed inner side (#11).

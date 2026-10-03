@@ -201,3 +201,45 @@ def test_pipe_length_does_not_change_the_elbow():
         V, F, bend = pipe_elbow(n_theta=24, pipe_length=length, spacing=0.1)
         bends.append(solve_fair(V, F, bend, 3)[bend])
     assert np.allclose(bends[0], bends[1], atol=1e-9)
+
+
+# ---------------------------------------------------------------------------
+# Uniform vs cotangent Laplacian in fairing (Fig. 4.9)
+# ---------------------------------------------------------------------------
+
+def fig49_problem(n, strength):
+    """Graded grid with heights z = x^2 - y^2 (harmonic, hence biharmonic); the disk of
+    radius 0.3 is free and starts on the exact surface ("remove and refill")."""
+    from fairing.mesh import graded_grid
+    V, F = graded_grid(n, n, strength=strength)
+    V[:, 2] = saddle(V[:, 0], V[:, 1])
+    r = np.linalg.norm(V[:, :2], axis=1)
+    return V, F, r < 0.3, r < 0.27
+
+
+def thin_plate_error(n, strength, laplacian):
+    V, F, free, inner = fig49_problem(n, strength)
+    W = solve_fair(V, F, free, 2, laplacian)
+    x, y, z = W[free].T
+    return np.abs(z - saddle(x, y)).max(), mean_curvature(W, F)[inner].mean(), mean_curvature(V, F)[inner].mean()
+
+
+def test_uniform_thin_plate_is_exact_on_a_regular_grid():
+    # On a regular lattice the connectivity is a faithful picture of the flat (x, y) domain.
+    assert thin_plate_error(41, 0.0, "uniform")[0] < 1e-10
+
+
+def test_uniform_thin_plate_has_artifacts_on_a_graded_grid():
+    # Fig. 4.9: with varying density the uniform result is far off, the cotangent one is not.
+    err_u, H_u, H_saddle = thin_plate_error(41, 0.7, "uniform")
+    err_c, H_c, _ = thin_plate_error(41, 0.7, "cotan")
+    assert err_u > 10 * err_c
+    assert H_u > 2 * H_saddle                                       # spurious curvature
+    assert abs(H_c - H_saddle) < 0.25 * H_saddle                    # cotan keeps the saddle's curvature
+
+
+def test_uniform_artifacts_do_not_vanish_with_refinement():
+    # A modeling error, not a discretization error: the graded mesh distorts the uniform
+    # "parameter domain" in the same way at every resolution.
+    coarse, fine = thin_plate_error(41, 0.7, "uniform")[0], thin_plate_error(81, 0.7, "uniform")[0]
+    assert fine > 0.5 * coarse
