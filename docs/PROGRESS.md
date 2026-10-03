@@ -5,10 +5,10 @@
 - [x] Phase 2: #5 uniform Laplacian (PR #21), #6 cotangent Laplacian (PR #22)
 - [x] Phase 3: #7 explicit smoothing (PR #23), #8 implicit smoothing (PR #24)
 - [x] Setup: sparse Cholesky (CHOLMOD via scikit-sparse) for the fairing solver (PR #25)
-- [x] Phase 4: #9 constrained solver (PR #26)
+- [x] Phase 4: #9 constrained solver (PR #26), #10 membrane (PR #27)
 
 ## Next
-- #10 Membrane surface, k = 1 (Phase 4)
+- #11 Thin plate and minimum variation, k = 2, 3 (Phase 4)
 
 ## Decisions
 - **Issue #N = plan step N** (all issues were created before any PR; M1 is #16). Figures are `docs/img/<NN>-<name>.png`.
@@ -23,7 +23,7 @@
 - **Explicit smoothing rebuilds L every step** (mean curvature flow for cotan). `explicit_step_limit` = 2/(λ|μ_min|), via `eigsh` on the symmetric D^½MD^½, with a fixed start vector so figures are reproducible.
 - **Implicit smoothing solves the symmetric (D⁻¹ − hλM)x' = D⁻¹x** with `factorized` (SuperLU), one factorization per step reused for x, y, z; L rebuilt each step, as in the explicit version.
 - **Solvers: Cholesky for fairing only.** From #9 on, the fairing solver uses a sparse Cholesky factorization (CHOLMOD, `sksparse.cholmod.cho_factor`), as App. A recommends for SPD systems. Implicit smoothing (#8) deliberately keeps SciPy's LU (`factorized`) and is not migrated. The contrast is part of the study.
-- **Fairing:** `solve_fair` builds A = (−1)ᵏM(DM)ᵏ⁻¹ from the *input* geometry, solves A_ff x_f = −A_fc x_c with `cho_factor`, takes a boolean `free_mask`, and refuses an all-free mask.
+- **Fairing:** `solve_fair` builds A = (−1)ᵏM(DM)ᵏ⁻¹ from `V_ref` if given (else the input V), solves A_ff x_f = −A_fc x_c with `cho_factor`, takes a boolean `free_mask`, and refuses an all-free mask.
 - **Noise is measured by `roughness`** (mean angle between adjacent face normals), not by the radius spread, which mixes noise with shape change.
 - **Plots:** sequential blue for magnitudes, blue–gray–red for signed values; compared panels share one scale; NaN = "not shown" (gray), used for boundary vertices; planar meshes drawn from above.
 
@@ -33,6 +33,7 @@
 - The uniform ‖Lx‖ is a length (≈ 0.12·h), not a curvature; only zero vs non-zero is comparable with the cotangent ‖Lx‖.
 - **Explicit cotangent smoothing is stiff:** stable h = 2.7·10⁻⁵ on the 24×48 UV sphere (uniform: 1.34), set by the pole triangles. Laplacian flow shrinks (r² = r₀² − 4λt on a sphere); the uniform flow also distorts the shape.
 - Implicit smoothing is stable for any h but still shrinks (radius × 1/(1 + 2hλ) on the unit sphere); cotan leaves tangential irregularity untouched (roughness floor ≈ 0.088).
+- **Cotan weights from a noisy input freeze the noise in:** the membrane stops converging (≈ 2·10⁻³) and free vertices slide in the plane. Pass a clean `V_ref` (e.g. the flat parameter domain).
 - scikit-sparse has no wheels: install SuiteSparse first (`brew install suite-sparse` / `apt install libsuitesparse-dev`). On macOS also set `SUITESPARSE_*_DIR` and `CPLUS_INCLUDE_PATH` (README), or clang++ cannot find `<complex>`.
 - Graph distance is not Euclidean: a band of k fixed rings can vary in physical width on irregular meshes.
 - Colored matplotlib surfaces are unlit, and face colors average out single-vertex outliers: use numbers for quantitative claims.

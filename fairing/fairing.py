@@ -34,7 +34,7 @@ def fairing_matrix(V, F, k, laplacian="cotan"):
     return ((-1) ** k * A).tocsr()
 
 
-def solve_fair(V, F, free_mask, k, laplacian="cotan"):
+def solve_fair(V, F, free_mask, k, laplacian="cotan", V_ref=None):
     """Move the free vertices so that ``L^k x = 0`` there; keep the others fixed.
 
     Splitting the unknowns into free (f) and constrained (c) vertices, the rows
@@ -45,7 +45,15 @@ def solve_fair(V, F, free_mask, k, laplacian="cotan"):
 
     ``A_ff`` is symmetric positive definite as long as some vertex is
     constrained; it is factorized once with Cholesky and solved for x, y and z
-    together. ``L`` is built from the input geometry ``V``.
+    together.
+
+    ``L`` is built from ``V_ref`` if given, otherwise from ``V``. The
+    linearized energies of Sec. 4.3 are defined with respect to a fixed
+    parametrization, so the cotangent weights should come from a clean
+    reference shape: weights computed from a noisy or damaged input are wrong,
+    and the result inherits the error (see docs/phases/phase-4.md, #10).
+    The uniform weights do not depend on positions, so ``V_ref`` changes
+    nothing for them.
 
     For ``C^(k-1)`` continuity at the border of the free region, the ``k``
     rings of vertices around it should be constrained (Sec. 4.3).
@@ -59,7 +67,7 @@ def solve_fair(V, F, free_mask, k, laplacian="cotan"):
     if free.all():
         raise ValueError("at least one vertex must be constrained, or L^k x = 0 has no unique solution")
 
-    A = fairing_matrix(V, F, k, laplacian)
+    A = fairing_matrix(V if V_ref is None else V_ref, F, k, laplacian)
     A_ff = A[free][:, free]
     A_fc = A[free][:, ~free]
     rhs = -(A_fc @ V[~free])                               # constrained values move to the right
