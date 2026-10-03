@@ -24,8 +24,10 @@ results = {"start: quarter torus": V}
 for k in (1, 2, 3):
     results[f"k = {k}"] = solve_fair(V, F, bend, k)
 
-# one color per face: blue if all three vertices are in the free bend, gray otherwise
-face_colors = np.where(bend[F].all(axis=1)[:, None], [0.36, 0.38, 0.79], [0.85, 0.85, 0.83])
+# one color per face: blue if it has at least one free vertex (it moved in the solve), gray if
+# all three are fixed. The color boundary is then the last fixed ring, the true border of the
+# free region, which has exactly the pipe's radius.
+face_colors = np.where(bend[F].any(axis=1)[:, None], [0.36, 0.38, 0.79], [0.85, 0.85, 0.83])
 
 ps.init()
 ps.set_up_dir("z_up")

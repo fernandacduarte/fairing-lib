@@ -179,7 +179,7 @@ Tests (`tests/test_fairing.py`): rings 1–3 around the free region end before t
 
 ![Two pipes at 90 degrees, k = 1, 2, 3](../img/11-elbow-k123.png)
 
-`docs/img/11-elbow-k123.png`. Both rows use the book's camera angle, matched by eye to Fig. 4.8 (nearly frontal, slightly from above: elevation 10°, azimuth −100°). Top row: rendered like the book, with lit surfaces, gray fixed pipes and a blue free bend. Bottom row: the same surfaces colored by mean curvature. The results reproduce Fig. 4.8.
+`docs/img/11-elbow-k123.png`. Both rows use the book's camera angle, matched by eye to Fig. 4.8 (nearly frontal, slightly from above: elevation 10°, azimuth −100°). Top row: rendered like the book, with lit surfaces, gray fixed pipes and a blue free bend; a triangle is blue if it has at least one free vertex (see Pitfalls). Bottom row: the same surfaces colored by mean curvature, shown on the free bend and on the two joint rings (the last fixed rings), where the k = 1 kink concentrates its curvature. The results reproduce Fig. 4.8.
 - **k = 1:** the membrane collapses into a thin, twisted funnel. Minimizing area pulls the bend's outer side inward, and the curvature concentrates in a dark band.
 - **k = 2:** a round elbow, joining both pipes tangentially.
 - **k = 3:** an even fuller, more evenly curved elbow.
@@ -229,5 +229,6 @@ Fig. 4.8 is taken from another paper (Botsch & Kobbelt 2004), and the book does 
 
 **Pitfalls.**
 - *"Smooth" needs refinement to be tested.* At a single resolution, the k = 2 joint angle (6.9°) is not much larger than the turning inside the free region (4.7°), so one picture cannot separate "a small kink" from "a smooth bend". The C^(k−1) claim is about how the angle behaves as h → 0.
+- *Draw the color boundary where the free region really ends.* A first version painted a triangle blue only if *all three* vertices were free. The strip between the last fixed ring and the first free ring was then gray, although two of its vertices had moved. For k = 1 that strip is the start of the kink: the first free ring has radius 0.915 (pipe: 1), and the strip leans 57° inward from the wall. It appeared as a gray "lip" on top of the pipe, with the blue starting on a circle smaller than the pipe. Coloring a triangle blue when it has *any* free vertex puts the color boundary on the last fixed ring, whose radius is exactly the pipe's. (For k = 2 and 3 the joint is smooth, so the two rules look the same: the first strip leans 4° and 0°.)
 - *Enough fixed rings.* k = 3 needs three fixed rings beyond the free region. If the bands were thinner, L³ would reach the tube's open ends and use the one-sided boundary Laplacian (#5).
 - *The uniform membrane pinches much more.* Measured ring by ring (mean distance of a ring's vertices from the ring's own center), the k = 1 neck has radius 0.20 with uniform weights vs 0.62 with cotangent weights (k = 2: 0.65 vs 0.93; k = 3: 0.92 vs 0.96), and the uniform k = 1 joint angle is 55° instead of about 11°. The tube's triangles are stretched (0.196 around × 0.1 along), and the uniform weights ignore that, as in #8 and #12.

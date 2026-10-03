@@ -205,7 +205,10 @@ def figure_elbow():
     Bottom row: the same surfaces colored by mean curvature (fixed pipes gray).
     """
     V, F, free = mesh.pipe_elbow()
-    free_face = free[F].all(axis=1)
+    # a face belongs to the free surface if it has at least one free vertex: the color boundary
+    # is then the last fixed ring (the true border, with the pipe's radius)
+    free_face = free[F].any(axis=1)
+    joint = mesh.ring_distance(F, np.flatnonzero(free), max_k=1) == 1      # the last fixed rings
     view = (10, -100)                         # matched by eye to Fig. 4.8: nearly frontal, slightly above
     fig = plt.figure(figsize=(12.5, 8.2))
     fig.subplots_adjust(left=0.02, right=0.9, wspace=0.05, hspace=0.12)
@@ -223,7 +226,7 @@ def figure_elbow():
         ax.set_title(f"k = {k}: {name}")
 
         H = mean_curvature(W, F)
-        H[~free] = np.nan                                         # fixed pipes in gray
+        H[~(free | joint)] = np.nan                               # pipes in gray, except the joint rings
         ax = fig.add_subplot(2, 3, col + 4, projection="3d")
         _, surf = viz.plot_mesh(W, F, H, ax, vmin=0, vmax=1.5, edges=False, colorbar=False,
                                 elev=view[0], azim=view[1], title=f"k = {k}: mean curvature H")
