@@ -197,7 +197,7 @@ def figure_profile():
     print("saved", IMG / "11-profile.png")
 
 
-def pipe_elbow(n_theta=48, radius=1.0, bend_radius=2.5, pipe_length=2.0, spacing=0.1):
+def pipe_elbow(n_theta=48, radius=1.0, bend_radius=1.5, pipe_length=2.0, spacing=0.1):
     """Two pipes at 90 degrees, joined by a quarter-torus bend (the setting of Fig. 4.8).
 
     A vertical pipe (axis z, z from -pipe_length to 0) and a horizontal pipe (axis x, at
@@ -230,20 +230,37 @@ def pipe_elbow(n_theta=48, radius=1.0, bend_radius=2.5, pipe_length=2.0, spacing
 
 
 def figure_elbow():
-    """Issue #11 (extra): Fig. 4.8's setting, two pipes at 90 degrees, solved with k = 1, 2, 3."""
+    """Issue #11 (extra): Fig. 4.8's setting, two pipes at 90 degrees, solved with k = 1, 2, 3.
+
+    Top row: rendered like the book (lit surfaces, fixed pipes gray, free bend blue).
+    Bottom row: the same surfaces colored by mean curvature (fixed pipes gray).
+    """
     V, F, free = pipe_elbow()
-    meshes, scalars = [], []
-    for k in (1, 2, 3):
+    free_face = free[F].all(axis=1)
+    view = (18, -65)                                              # oblique, slightly from above
+    fig = plt.figure(figsize=(12.5, 8.2))
+    fig.subplots_adjust(left=0.02, right=0.9, wspace=0.05, hspace=0.12)
+    for col, k in enumerate((1, 2, 3)):
         W = solve_fair(V, F, free, k)
+        name = ["membrane (C⁰)", "thin plate (C¹)", "minimum variation (C²)"][col]
+
+        ax = fig.add_subplot(2, 3, col + 1, projection="3d")
+        for faces, color in ((F[~free_face], "#d9d8d4"), (F[free_face], "#5b62c9")):
+            ax.plot_trisurf(W[:, 0], W[:, 1], W[:, 2], triangles=faces, color=color,
+                            shade=True, linewidth=0, antialiased=False)
+        viz._set_equal_aspect(ax, W)
+        ax.view_init(*view)
+        ax.set_axis_off()
+        ax.set_title(f"k = {k}: {name}")
+
         H = mean_curvature(W, F)
-        H[~free] = np.nan                                         # fixed pipes in gray, as in the book
-        meshes.append((W, F))
-        scalars.append(H)
-    titles = ["k = 1: membrane (C⁰)", "k = 2: thin plate (C¹)", "k = 3: minimum variation (C²)"]
-    fig = viz.compare(meshes, titles, scalars, vmin=0, vmax=1.5, views=[(15, -90)] * 3,
-                      panel_size=(4.2, 4.4), edges=False)
-    fig.suptitle("Two pipes at 90° (fixed, gray) joined by a free bend, colored by mean curvature H\n"
-                 "(straight pipe: 0.5; ≥ 1.5 saturates). Compare with Fig. 4.8.", y=0.98)
+        H[~free] = np.nan                                         # fixed pipes in gray
+        ax = fig.add_subplot(2, 3, col + 4, projection="3d")
+        _, surf = viz.plot_mesh(W, F, H, ax, vmin=0, vmax=1.5, edges=False, colorbar=False,
+                                elev=view[0], azim=view[1], title=f"k = {k}: mean curvature H")
+    cax = fig.add_axes([0.93, 0.12, 0.012, 0.3])                 # own slot: do not shrink the panels
+    fig.colorbar(surf, cax=cax, label="H (straight pipe: 0.5;\n≥ 1.5 saturates)")
+    fig.suptitle("Two pipes at 90° (fixed) joined by a free bend: compare with Fig. 4.8", y=0.98)
     fig.savefig(IMG / "11-elbow-k123.png", dpi=150, bbox_inches="tight")
     print("saved", IMG / "11-elbow-k123.png")
 
