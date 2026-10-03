@@ -35,7 +35,7 @@ Fairing asks for Lᵏx = **0** (§4.3), so **b = 0**, and the term (−1)ᵏD⁻
 
   0 − Σᵢ∈C xᵢ aᵢ = **−A_fc x_c**,
 
-where A_fc collects those columns, restricted to the free rows. That is `fairing.py:73`. The factor (−1)ᵏ is not lost: `fairing_matrix` already multiplies the whole matrix by it, so A_fc carries it, and (−1)ᵏ·0 is still 0.
+where A_fc collects those columns, restricted to the free rows. That is `fairing.py:71`. The factor (−1)ᵏ is not lost: `fairing_matrix` already multiplies the whole matrix by it, so A_fc carries it, and (−1)ᵏ·0 is still 0.
 
 Compare with implicit smoothing (#8), where b ≠ 0. There the system (I − hλL)x' = x has b = x, and the code does compute D⁻¹b (`rhs = D_inv @ V`, `smoothing.py:76`). The two steps show the two halves of the formula. `solve_fair` handles only b = 0. A problem with b ≠ 0, such as the deformations mentioned on p. 61, would add (−1)ᵏ D_ff⁻¹ b_f to the right-hand side, using the D entries of the free rows.
 
@@ -43,11 +43,11 @@ Compare with implicit smoothing (#8), where b ≠ 0. There the system (I − hλ
 |---|---|---|
 | App. A.1, Eq. A.2 | M(DM)ᵏ⁻¹, built by repeated `A @ D @ M` | `fairing_matrix`, `fairing/fairing.py:33` |
 | App. A.1 ("Definiteness") | sign (−1)ᵏ | `fairing.py:34` |
-| App. A.1 ("Definiteness") | A_ff and A_fc: free rows, split columns | `solve_fair`, `fairing.py:71–72` |
-| App. A.1 | right-hand side −A_fc x_c | `fairing.py:73` |
-| App. A (sparse Cholesky) | factorize A_ff once, solve x, y, z together | `fairing.py:75` |
+| App. A.1 ("Definiteness") | A_ff and A_fc: free rows, split columns | `solve_fair`, `fairing.py:69–70` |
+| App. A.1 | right-hand side −A_fc x_c | `fairing.py:71` |
+| App. A (sparse Cholesky) | factorize A_ff once, solve x, y, z together | `fairing.py:73` |
 
-L is built from the input geometry, or from a reference shape `V_ref` if one is given (added in #10, where it turns out to matter). The starting positions of the free vertices enter only through the cotangent weights; the uniform weights do not depend on positions at all. If every vertex is free, the problem has no unique answer (constants solve it), and `solve_fair` raises a `ValueError`.
+L is built once from the input geometry and then frozen; that is what makes the system linear. The starting positions of the free vertices enter only through the cotangent weights, and #10 shows that this matters. The uniform weights do not depend on positions at all. If every vertex is free, the problem has no unique answer (constants solve it), and `solve_fair` raises a `ValueError`.
 
 Tests (`tests/test_fairing.py`), for k = 1, 2, 3 and both Laplacians: A_ff is symmetric, its smallest eigenvalue is positive, and a Cholesky factorization exists. The solution satisfies Lᵏx = 0 at the free vertices, to 10⁻⁹ relative to the size of Lᵏx on the input. Constrained vertices do not move; nothing free → V unchanged; everything free → error. For k = 1, A = −M.
 
@@ -65,41 +65,45 @@ Tests (`tests/test_fairing.py`), for k = 1, 2, 3 and both Laplacians: A_ff is sy
 
 ## #10 Membrane surface (k = 1)
 
-**Theory → code.** The membrane is the surface of minimal area spanning the fixed boundary (Eq. 4.7). Area is non-linear in x, so the book replaces it with the **Dirichlet energy** ∫‖x_u‖² + ‖x_v‖² du dv (Eq. 4.8), which is quadratic. Its minimizer satisfies **Δx = 0** (Euler–Lagrange, p. 59), discretized as **Lx = 0**: `solve_fair(..., k=1)`. Each coordinate of the result is a *discrete harmonic function*: every free vertex sits at the weighted average of its neighbors, with weights wᵢⱼ.
+**Theory → code.** `solve_fair(..., k=1)` solves **Lx = 0** on the free vertices: every free vertex ends up at the weighted average of its neighbors. The book reaches this equation in two steps (§4.3, p. 57–59), and the step in between is what this issue is really about.
 
-Two cases have exact answers:
-- **A, planar boundary.** z = 0 on all constrained vertices. Then z = 0 everywhere solves Lz = 0, and the solution is unique (A_ff is SPD), so the result is exactly flat, however noisy the free disk starts.
-- **B, boundary heights z = x² − y².** This function is harmonic in the plane (∂²/∂x² + ∂²/∂y² = 2 − 2 = 0), so the exact continuous membrane is z = x² − y². The discrete result should approach it as the grid is refined.
+**Two membranes.**
+- **Eq. 4.7, the true membrane:** the surface of *minimal area* spanning the boundary. Its condition is Δₛx = 0, with Δₛ the Laplace–Beltrami operator *of the result surface itself*. By Eq. 3.7 this means H = 0 everywhere: a **minimal surface**, like a soap film. The operator depends on the unknown surface, so the problem is non-linear.
+- **Eq. 4.8, the linearized membrane:** the book replaces area with the Dirichlet energy ∫‖x_u‖² + ‖x_v‖², whose derivatives are taken with respect to a **fixed parametrization** (u, v). Its solution is harmonic with respect to (u, v). In general it is a different surface, and not a minimal one.
 
-The setup (`tests/test_fairing.py`, `examples/04_fairing.py`): an irregular grid on [−0.5, 0.5]² whose disk of radius 0.3 is free. The free vertices start at the target height plus noise.
+**What the code does.** The book's discrete method (p. 59) is one linear solve, **Lx = 0, with L built once from the input mesh and frozen**. Which of the two membranes that approximates depends on where the weights come from:
+- **Uniform weights** ignore the geometry. Their implicit "parametrization" is the mesh connectivity. On our nearly regular grid that behaves like the flat (x, y) domain, so uniform fairing approximates **Eq. 4.8 over (x, y)**.
+- **Cotangent weights** are the Laplace–Beltrami operator of the *input surface*. When the input is already close to the answer, freezing them is a good approximation of Δₛ, and one solve lands close to **Eq. 4.7, the minimal surface**. When the input is badly damaged, the frozen weights describe a crumpled surface, and the result inherits the damage.
 
-**Which geometry is L built from?** This is the main lesson of this step. Eq. 4.8 measures derivatives with respect to a *fixed parametrization* (u, v). On a mesh, "the parametrization" is whatever geometry the cotangent weights are computed from. If they are computed from the noisy input, the noise leaks into the weights:
-- in case A, z is still exactly 0 (the weights do not matter when every boundary value is 0), but the free vertices slide in the plane by up to two grid spacings, because weights from a noisy mesh lose linear precision (#6);
-- in case B, the error stops shrinking (orange curve below).
-
-`solve_fair` therefore takes an optional **`V_ref`**: the geometry L is built from (default: `V` itself). Here `V_ref` is the clean flat grid, the natural parameter domain. With it, x and y stay exactly in place in case A (to 10⁻¹⁵), and case B converges.
+**The test cases.** An irregular grid on [−0.5, 0.5]² whose disk of radius 0.3 is free; the free vertices start at the target height, with or without noise.
+- **A, planar boundary.** z = 0 on all constrained vertices. Then z = 0 is the unique solution of Lz = 0, *whatever the weights*, so the result is exactly flat for both Laplacians.
+- **B, boundary heights z = x² − y².** This function is harmonic in the plane (∂²/∂x² + ∂²/∂y² = 2 − 2 = 0), so it is the exact answer of **Eq. 4.8 over the flat (x, y) domain**. But it is **not** a minimal surface: its mean curvature on the disk is |H| ≈ 0.07. So it is the right reference for the uniform weights, and the wrong one for the cotangent weights.
 
 | Book | Formula | Code |
 |---|---|---|
-| Eq. 4.8, p. 59 | Lx = 0 on the free vertices | `solve_fair(V, F, free, k=1, ...)` |
-| Eq. 4.8 ("parametrization") | weights from a reference shape | `V_ref`, `fairing/fairing.py:70` |
+| Eq. 4.8, p. 59 | Lx = 0 on the free vertices, L frozen from the input | `solve_fair(V, F, free, k=1)`, `fairing/fairing.py:68` |
+| Eq. 3.7 | H = ½‖Lx‖, to tell a minimal surface (H = 0) apart | `mean_curvature` |
 
-Tests: case A is flat to 10⁻¹² for both Laplacians, with and without `V_ref`. With `V_ref`, the cotangent result keeps the free vertices in place; without it, they move by more than 10⁻³. Case B errors shrink over n = 11, 21, 41 for both Laplacians. Without `V_ref`, the cotangent error at n = 41 is more than 10× larger than with it.
+Tests (`tests/test_fairing.py`):
+- **Case A:** flat to 10⁻¹² for both Laplacians. With cotangent weights from a noisy start, the free vertices also slide in the plane (by more than 10⁻³), because the noisy input is not planar and the weights lose linear precision (#6).
+- **Case B, uniform:** the distance to x² − y² shrinks over n = 11, 21, 41.
+- **Case B, cotangent from a smooth start:** mean |H| is below 20% of the saddle's, and the distance to x² − y² stays at a fixed gap between 5·10⁻⁴ and 3·10⁻³, independent of h.
+- **Case B, cotangent from a badly damaged start** (noise σ = 0.02, larger than the edge length at n = 81): mean |H| more than 100× larger than from a smooth start.
 
 **What the figures show.**
 
 ![Membrane surfaces, cases A and B](../img/10-membrane.png)
 
-`docs/img/10-membrane.png`, colored by height (gray = 0). Top: the noisy disk (left) becomes exactly flat (right). Bottom: with saddle-shaped boundary heights, the noisy disk becomes a smooth saddle that continues the surrounding surface. Note the C⁰ joint: the membrane matches the *positions* of the boundary, not its slope. In case B the slope happens to match too, because x² − y² is itself harmonic, but #11 will show the kink in general.
+`docs/img/10-membrane.png`, colored by height (gray = 0), cotangent weights, one solve. Top: the noisy disk becomes exactly flat. Bottom: with saddle-shaped boundary heights, the noisy disk becomes a smooth surface continuing the boundary. The joint is C⁰: a membrane matches the boundary *positions*, not its slope; #11 shows the kink.
 
-![Convergence of the harmonic case](../img/10-convergence.png)
+![Two different membranes](../img/10-two-membranes.png)
 
-`docs/img/10-convergence.png`: the maximum error |z − (x² − y²)| on the free disk, measured at the final (x, y), versus grid spacing h, from 11 × 11 to 161 × 161 vertices.
-- **Cotangent, L from the flat reference (dark blue):** follows the h² guide; the error drops by about 4× per halving of h (from 2.7·10⁻⁴ to 2·10⁻⁶).
-- **Uniform (light blue):** also converges here, but more slowly (about h^1.5) and with 5–12× larger errors; it also slides the free vertices in the plane. The jitter is mild, so the uniform weights are not far off.
-- **Cotangent, L from the noisy input (orange):** stuck around 2·10⁻³ at every resolution. The noise is the same relative size at every resolution, so the weight errors never go away.
+`docs/img/10-two-membranes.png`: case B as the grid is refined from 11² to 161² vertices.
+- *Left, distance to the harmonic graph x² − y².* Uniform (light blue) converges to it. Cotangent from a smooth start (dark blue) stays at a fixed gap of about 1.3·10⁻³: it is converging to a *different* surface.
+- *Right, mean |H| on the disk.* Uniform has exactly the saddle's curvature (dashed): it *is* the harmonic graph, and not a minimal surface. Cotangent from a smooth start goes to H = 0 like h: it is the minimal surface, and the 1.3·10⁻³ gap on the left is the distance between the two membranes.
+- *Orange, cotangent from a noisy start.* Noise of fixed size σ = 0.02 becomes larger than the edges as h shrinks. The frozen weights then describe a crumpled surface, and the result's curvature explodes (mean |H| ≈ 47 at 161²), even though its heights stay within 2·10⁻³ of the saddle.
 
 **Pitfalls.**
-- *The weights come from somewhere.* The fairing equations are linear only because the weights are frozen. Freezing them on a damaged surface (noise, a crude hole patch) freezes the damage into the result. Use a clean reference when one exists (a parameter domain, the original surface). When none exists, use the uniform weights, which do not depend on geometry, or iterate (re-solve with weights from the previous result).
-- *A smooth-looking result can still be wrong.* The orange case looks perfectly fine in a picture. Only the convergence test against an exact answer reveals that it never converges.
-- *Measure the error at the final (x, y).* The free vertices may move in x and y too (uniform, or cotan from a noisy input), so the target height must be evaluated at their new position, not the old one.
+- *An "exact answer" belongs to a specific problem.* x² − y² is exact for Eq. 4.8 over the flat (x, y) domain, not for Eq. 4.7. A first version of this step compared the cotangent result against it, concluded "it does not converge", and "fixed" this by building the weights from the flat grid. That only forced the cotangent solver to answer Eq. 4.8, and such a flat reference does not exist for a real mesh with a hole. It was removed. The correct check for the cotangent membrane is H → 0.
+- *The weights are frozen from the input.* Linearity comes from computing L once. With cotangent weights, a smooth start gives a sensible result in one solve; a start damaged at the scale of the edges does not. Height errors alone can hide this (orange: heights within 2·10⁻³, curvature 47); check H, or look at the mesh. The book's method for hole filling, and ways to obtain good weights without a reference, are discussed in #14.
+- *Measure at the final (x, y).* The free vertices can move in x and y too, so the target height must be evaluated at their new position.

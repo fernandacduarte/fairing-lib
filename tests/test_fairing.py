@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from fairing.fairing import fairing_matrix, solve_fair
-from fairing.laplacian import LAPLACIANS
+from fairing.laplacian import LAPLACIANS, mean_curvature
 from fairing.mesh import add_noise, irregular_grid, k_ring
 
 
@@ -75,56 +75,69 @@ def test_fairing_matrix_k1_is_minus_M():
 # Membrane surface, k = 1 (Eq. 4.7-4.8)
 # ---------------------------------------------------------------------------
 
-def disk_problem(n, heights, interior_noise=0.02, seed=0):
+def disk_problem(n, heights, interior_noise, seed=0):
     """Irregular planar grid on [-0.5, 0.5]^2 whose disk of radius 0.3 is free.
 
-    The constrained vertices get z = heights(x, y); the free ones start at
-    heights(x, y) plus noise. Returns the input V, the flat reference V_ref
-    (same x, y, z = 0), F, and the free mask.
+    Every vertex gets z = heights(x, y); the free ones also get noise.
     """
-    V_ref, F = irregular_grid(n, n, jitter=0.15, seed=seed)
-    free = np.linalg.norm(V_ref[:, :2], axis=1) < 0.3
-    V = V_ref.copy()
+    V, F = irregular_grid(n, n, jitter=0.15, seed=seed)
+    r = np.linalg.norm(V[:, :2], axis=1)
+    free = r < 0.3
     V[:, 2] = heights(V[:, 0], V[:, 1])
     V[free, 2] += np.random.default_rng(seed).normal(0, interior_noise, free.sum())
-    return V, V_ref, F, free
+    return V, F, free, r
 
 
 flat = lambda x, y: 0 * x
-saddle = lambda x, y: x**2 - y**2                    # harmonic: 2 - 2 = 0
+saddle = lambda x, y: x**2 - y**2                    # harmonic in the plane: 2 - 2 = 0
 
 
 @pytest.mark.parametrize("laplacian", ["uniform", "cotan"])
-@pytest.mark.parametrize("use_ref", [False, True])
-def test_membrane_with_planar_boundary_is_exactly_planar(laplacian, use_ref):
-    # z = 0 on the boundary => z = 0 is the unique discrete harmonic function.
-    V, V_ref, F, free = disk_problem(21, flat, interior_noise=0.05)
-    W = solve_fair(V, F, free, 1, laplacian, V_ref=V_ref if use_ref else None)
+def test_case_A_planar_boundary_gives_an_exactly_planar_membrane(laplacian):
+    # z = 0 on the boundary => z = 0 is the unique solution, whatever the weights.
+    V, F, free, _ = disk_problem(21, flat, interior_noise=0.05)
+    W = solve_fair(V, F, free, 1, laplacian)
     assert np.abs(W[:, 2]).max() < 1e-12
 
 
-def test_cotan_membrane_keeps_planar_vertices_in_place_only_with_a_clean_reference():
-    # Linear precision (#6) holds for weights from the flat grid, not from the noisy input.
-    V, V_ref, F, free = disk_problem(21, flat, interior_noise=0.05)
-    moved = lambda W: np.abs(W[free, :2] - V[free, :2]).max()
-    assert moved(solve_fair(V, F, free, 1, "cotan", V_ref=V_ref)) < 1e-12
-    assert moved(solve_fair(V, F, free, 1, "cotan")) > 1e-3
+def test_case_A_cotan_weights_from_a_noisy_start_let_vertices_slide():
+    # The weights are frozen from the noisy input, which is not planar, so the cotangent
+    # Laplacian loses its linear precision there (#6) and x, y move. Uniform: no such effect.
+    V, F, free, _ = disk_problem(21, flat, interior_noise=0.05)
+    slide = lambda W: np.abs(W[free, :2] - V[free, :2]).max()
+    assert slide(solve_fair(V, F, free, 1, "cotan")) > 1e-3
 
 
-def saddle_error(n, laplacian, use_ref):
-    V, V_ref, F, free = disk_problem(n, saddle)
-    W = solve_fair(V, F, free, 1, laplacian, V_ref=V_ref if use_ref else None)
+def saddle_case(n, laplacian, interior_noise):
+    V, F, free, r = disk_problem(n, saddle, interior_noise)
+    W = solve_fair(V, F, free, 1, laplacian)
     x, y, z = W[free].T
-    return np.abs(z - saddle(x, y)).max()             # compare at the final (x, y)
+    gap = np.abs(z - saddle(x, y)).max()                       # compare at the final (x, y)
+    inner = r < 0.25                                           # away from the rim of the disk
+    return gap, mean_curvature(W, F)[inner].mean()
 
 
-@pytest.mark.parametrize("laplacian", ["uniform", "cotan"])
-def test_harmonic_boundary_error_shrinks_with_resolution(laplacian):
-    errors = [saddle_error(n, laplacian, use_ref=True) for n in (11, 21, 41)]
-    assert errors[0] > errors[1] > errors[2]
-    assert errors[2] < 5e-4
+def test_case_B_uniform_converges_to_the_harmonic_graph():
+    # Uniform weights ignore geometry; on this nearly regular grid they act like the flat
+    # (x, y) parameter domain of Eq. 4.8, whose exact answer is z = x^2 - y^2.
+    gaps = [saddle_case(n, "uniform", interior_noise=0.02)[0] for n in (11, 21, 41)]
+    assert gaps[0] > gaps[1] > gaps[2] and gaps[2] < 5e-4
 
 
-def test_cotan_weights_from_the_noisy_input_stop_the_convergence():
-    # Documented pitfall: with L built from the noisy input, the error stalls.
-    assert saddle_error(41, "cotan", use_ref=False) > 10 * saddle_error(41, "cotan", use_ref=True)
+def test_case_B_cotan_from_a_smooth_start_is_nearly_a_minimal_surface():
+    # Cotangent weights from the surface itself approximate the true membrane of Eq. 4.7,
+    # a minimal surface (H = 0). x^2 - y^2 is not one (|H| ~ 0.07), so a fixed gap remains.
+    V, F, free, r = disk_problem(41, saddle, interior_noise=0.0)
+    H_saddle = mean_curvature(V, F)[r < 0.25].mean()
+    gaps, H = zip(*[saddle_case(n, "cotan", interior_noise=0.0) for n in (21, 41, 81)])
+    assert all(h < 0.2 * H_saddle for h in H)                  # much closer to H = 0
+    assert all(5e-4 < g < 3e-3 for g in gaps)                  # a gap that does not vanish
+    assert max(gaps) / min(gaps) < 1.5                         # ... and does not depend on h
+
+
+def test_case_B_cotan_from_a_badly_damaged_start_is_corrupted():
+    # Documented pitfall: noise larger than the edges (sigma = 0.02 > h = 0.0125) gives
+    # cotangent weights from a crumpled surface, and the frozen weights crumple the result.
+    _, H_noisy = saddle_case(81, "cotan", interior_noise=0.02)
+    _, H_clean = saddle_case(81, "cotan", interior_noise=0.0)
+    assert H_noisy > 100 * H_clean
