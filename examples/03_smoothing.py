@@ -60,39 +60,44 @@ def figure_explicit_unstable():
     L = uniform_laplacian(V0, F)[0]                        # depends only on F
     zigzag = lambda V: np.linalg.norm(L @ V, axis=1).mean()
     runs = [(0.5, "#86b6ef"), (0.9, "#1c5cab"), (1.1, "#eb6834")]
-    n_iter, snap_it = 40, 10
-    fig = plt.figure(figsize=(10, 4.6))
-    ax_plot = fig.add_subplot(1, 2, 2)
+    n_iter, snap_its = 40, (10, 32)
+
+    fig = plt.figure(figsize=(11, 7.6))
+    grid = fig.add_gridspec(2, 2, width_ratios=[1, 1.45])
+    ax_plot = fig.add_subplot(grid[:, 1])
+    snapshots = {}
     for frac, color in runs:
         V, amp = V0, [zigzag(V0)]
         for it in range(1, n_iter + 1):
             V = explicit_smoothing(V, F, frac * limit, laplacian="uniform")
             amp.append(zigzag(V))
-            if frac > 1 and it == snap_it:
-                snapshot = V
-        ax_plot.semilogy(amp, color=color, lw=2, label=f"h = {frac} × limit")
+            if frac > 1 and it in snap_its:
+                snapshots[it] = V
+        ax_plot.semilogy(amp, color=color, lw=2, label=f"h = {frac} × h_max")
         if frac > 1:
             unstable_amp = amp
-    ax_plot.plot(snap_it, unstable_amp[snap_it], "o", ms=9, color="#eb6834", mec="white", mew=1.5, zorder=3)
-    ax_plot.annotate(f"step {snap_it} (left)", (snap_it, unstable_amp[snap_it]),
-                     xytext=(snap_it + 3, unstable_amp[snap_it] * 4), fontsize=9, color="#3d3c39",
-                     arrowprops=dict(arrowstyle="-", color="#8a8984", lw=0.8))
-    ax_plot.annotate("above the limit the zig-zag grows\n×1.2 per step: a straight line\non this log axis",
-                     (27, unstable_amp[22]), fontsize=9, color="#3d3c39", ha="left")
+    for it, (dx, dy) in zip(snap_its, ((-9, 4), (-12, 2))):     # label offsets, clear of the curve
+        ax_plot.plot(it, unstable_amp[it], "o", ms=9, color="#eb6834", mec="white", mew=1.5, zorder=3)
+        ax_plot.annotate(f"step {it}", (it, unstable_amp[it]), xytext=(it + dx, unstable_amp[it] * dy),
+                         fontsize=9, color="#3d3c39", arrowprops=dict(arrowstyle="-", color="#8a8984", lw=0.8))
+    ax_plot.annotate("above h_max the zig-zag grows\n×1.2 per step: a straight line\non this log axis",
+                     (27, unstable_amp[20]), fontsize=9, color="#3d3c39", ha="left")
     ax_plot.set_ylim(bottom=2.5e-3)
-    ax_plot.annotate("below the limit the noise is damped; what remains\nis the smooth sphere's own (curvature) part of Lx",
+    ax_plot.annotate("below h_max the noise is damped; what remains\nis the smooth sphere's own (curvature) part of Lx",
                      (12, 3.0e-3), fontsize=9, color="#3d3c39")
     ax_plot.set_xlabel("iteration")
     ax_plot.set_ylabel("zig-zag size: mean ‖Lx‖ (uniform)")
-    ax_plot.set_title(f"uniform Laplacian, step limit = {limit:.2f}")
+    ax_plot.set_title(f"uniform Laplacian, h_max = {limit:.2f}")
     ax_plot.grid(True, color="#e6e5e1", lw=0.8)
     for side in ("top", "right"):
         ax_plot.spines[side].set_visible(False)
     ax_plot.legend(frameon=False, loc="upper left")
 
-    ax = fig.add_subplot(1, 2, 1, projection="3d")
-    viz.plot_mesh(snapshot, F, ax=ax,
-                  title=f"h = 1.1 × limit, step {snap_it}:\nneighbors pushed in opposite directions")
+    titles = {10: "h = 1.1 × h_max, step 10:\nneighbors pushed in opposite directions",
+              32: "h = 1.1 × h_max, step 32:\nthe zig-zag has torn the mesh apart"}
+    for row, it in enumerate(snap_its):
+        ax = fig.add_subplot(grid[row, 0], projection="3d")
+        viz.plot_mesh(snapshots[it], F, ax=ax, title=titles[it])
     fig.tight_layout()
     fig.savefig(IMG / "07-explicit-unstable.png", dpi=150, bbox_inches="tight")
     print("saved", IMG / "07-explicit-unstable.png")

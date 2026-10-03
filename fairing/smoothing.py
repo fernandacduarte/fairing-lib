@@ -20,7 +20,7 @@ def explicit_smoothing(V, F, h, lam=1.0, n_iter=1, laplacian="uniform"):
     cotangent Laplacian this is the discrete mean curvature flow). With the
     uniform Laplacian ``L`` depends only on ``F``, so rebuilding changes nothing.
 
-    The step is stable only for ``h <= explicit_step_limit(...)``; see there.
+    The step is stable only for ``h <= h_max = explicit_step_limit(...)``; see there.
     """
     V = np.asarray(V, dtype=float).copy()
     build = LAPLACIANS[laplacian]
@@ -31,7 +31,7 @@ def explicit_smoothing(V, F, h, lam=1.0, n_iter=1, laplacian="uniform"):
 
 
 def explicit_step_limit(V, F, lam=1.0, laplacian="uniform"):
-    """Largest stable step ``h`` for explicit smoothing: ``2 / (λ |μ_min|)``.
+    """Largest stable step ``h_max = 2 / (λ |μ_min|)`` for explicit smoothing.
 
     One explicit step multiplies each eigencomponent of ``x`` (eigenvalue ``μ``
     of ``L``, all ``μ <= 0``) by ``1 + h λ μ``. It stays bounded only if
