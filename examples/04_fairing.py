@@ -5,7 +5,7 @@ Run from the repository root:
     python examples/04_fairing.py
 
 Saves docs/img/09-sparsity.png, docs/img/10-membrane.png,
-docs/img/10-two-membranes.png, docs/img/11-tube-k123.png and docs/img/11-profile.png.
+docs/img/10-two-membranes.png, docs/img/11-tube-k123.png, docs/img/11-profile.png and docs/img/11-elbow-k123.png.
 """
 
 from pathlib import Path
@@ -179,7 +179,6 @@ def figure_profile():
     ax.set_ylabel("z")
     ax.set_aspect("equal")
     ax.set_title("meridian profile (θ = 0 side)")
-    ax.legend(frameon=False, loc="lower right", fontsize=9)
     zoom.set_xlim(0.55, 1.3)
     zoom.set_ylim(0.55, 1.65)
     zoom.set_aspect("equal")
@@ -189,9 +188,64 @@ def figure_profile():
                   fontsize=9, color="#3d3c39", arrowprops=arrow)
     zoom.annotate("k = 2, 3 leave it\ntangentially (C¹, C²)", xy=(1.012, 1.1), xytext=(1.06, 0.75),
                   fontsize=9, color="#3d3c39", arrowprops=arrow)
+    # one legend for both panels, below them: the left panel is too narrow to hold it
+    handles, labels = zoom.get_legend_handles_labels()
+    fig.legend(handles, labels, loc="lower center", ncol=4, frameon=False, fontsize=10,
+               bbox_to_anchor=(0.5, -0.04))
     fig.tight_layout()
     fig.savefig(IMG / "11-profile.png", dpi=150, bbox_inches="tight")
     print("saved", IMG / "11-profile.png")
+
+
+def pipe_elbow(n_theta=48, radius=1.0, bend_radius=2.5, pipe_length=2.0, spacing=0.1):
+    """Two pipes at 90 degrees, joined by a quarter-torus bend (the setting of Fig. 4.8).
+
+    A vertical pipe (axis z, z from -pipe_length to 0) and a horizontal pipe (axis x, at
+    height bend_radius) are fixed; the bend between them is free. The mesh reuses the tube's
+    connectivity (ring j, angle i -> vertex i + n_theta*j); only the ring positions change:
+    ring j has a center c_j and an in-plane direction e1_j that turns with the bend (e2 = y).
+    The free bend starts as an exact quarter torus, a clean surface for the frozen weights.
+    """
+    n_bend = int(round(bend_radius * np.pi / 2 / spacing))       # bend segments (≈ spacing long)
+    n_pipe = int(round(pipe_length / spacing))                    # segments per straight pipe
+    centers, e1 = [], []
+    for j in range(n_pipe + 1):                                   # vertical pipe, ends at z = 0
+        centers.append((0, 0, -pipe_length + j * spacing))
+        e1.append((1, 0, 0))
+    for m in range(1, n_bend):                                    # bend: angle phi from 0 to 90 deg
+        phi = m * (np.pi / 2) / n_bend
+        centers.append((bend_radius * (1 - np.cos(phi)), 0, bend_radius * np.sin(phi)))
+        e1.append((np.cos(phi), 0, -np.sin(phi)))                 # stays perpendicular to the axis
+    for j in range(n_pipe + 1):                                   # horizontal pipe, along +x
+        centers.append((bend_radius + j * spacing, 0, bend_radius))
+        e1.append((0, 0, -1))
+    centers, e1 = np.array(centers, float), np.array(e1, float)
+    _, F = mesh.tube(n_theta, len(centers))
+    theta = 2 * np.pi * np.arange(n_theta) / n_theta
+    circle = np.cos(theta)[None, :, None] * e1[:, None, :] + np.sin(theta)[None, :, None] * np.array([0, 1.0, 0])
+    V = (centers[:, None, :] + radius * circle).reshape(-1, 3)
+    ring = np.repeat(np.arange(len(centers)), n_theta)
+    free = (ring > n_pipe) & (ring < n_pipe + n_bend)
+    return V, F, free
+
+
+def figure_elbow():
+    """Issue #11 (extra): Fig. 4.8's setting, two pipes at 90 degrees, solved with k = 1, 2, 3."""
+    V, F, free = pipe_elbow()
+    meshes, scalars = [], []
+    for k in (1, 2, 3):
+        W = solve_fair(V, F, free, k)
+        H = mean_curvature(W, F)
+        H[~free] = np.nan                                         # fixed pipes in gray, as in the book
+        meshes.append((W, F))
+        scalars.append(H)
+    titles = ["k = 1: membrane (C⁰)", "k = 2: thin plate (C¹)", "k = 3: minimum variation (C²)"]
+    fig = viz.compare(meshes, titles, scalars, vmin=0, vmax=1.5, views=[(15, -90)] * 3,
+                      panel_size=(4.2, 4.4), edges=False)
+    fig.suptitle("Two pipes at 90° (fixed, gray) joined by a free bend, colored by mean curvature H\n"
+                 "(straight pipe: 0.5; ≥ 1.5 saturates). Compare with Fig. 4.8.", y=0.98)
+    fig.savefig(IMG / "11-elbow-k123.png", dpi=150, bbox_inches="tight")
+    print("saved", IMG / "11-elbow-k123.png")
 
 
 if __name__ == "__main__":
@@ -201,3 +255,4 @@ if __name__ == "__main__":
     figure_two_membranes()
     figure_tube_blend()
     figure_profile()
+    figure_elbow()

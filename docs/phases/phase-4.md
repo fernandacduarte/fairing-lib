@@ -175,6 +175,22 @@ Tests (`tests/test_fairing.py`): rings 1–3 around the free region end before t
 - *Left:* k = 1 bulges inward (toward x < 1) and meets the bands at an angle. k = 2 and 3 are S-shaped curves that leave each band tangentially; k = 3 is a bit straighter in the middle.
 - *Right, zoom on the bottom joint:* the k = 1 profile breaks away from the vertical line with a visible kink. k = 2 and k = 3 start out vertical, tangent to the fixed tube.
 
+**A second example: Fig. 4.8's two pipes at 90°.** `pipe_elbow` in `examples/04_fairing.py` builds the book's setting. A vertical pipe and a horizontal pipe, both fixed, are joined by a free bend. The mesh reuses the tube's connectivity; only the ring positions change. Each ring has a center on the bend's axis and an in-plane direction that turns with the bend, so the triangles stay consistently oriented. The free bend starts as an exact quarter torus (bend radius 2.5, pipe radius 1), a clean surface for the frozen weights (#10). This helper lives in the example script, not in the library.
+
+![Two pipes at 90 degrees, k = 1, 2, 3](../img/11-elbow-k123.png)
+
+`docs/img/11-elbow-k123.png`: fixed pipes in gray (as in the book), the free bend colored by mean curvature. The three results reproduce Fig. 4.8.
+- **k = 1:** the membrane collapses into a thin, twisted funnel. Minimizing area pulls the bend's outer side inward, and the curvature concentrates in a dark band.
+- **k = 2:** a round elbow, joining both pipes tangentially.
+- **k = 3:** an even fuller, more evenly curved elbow.
+
+On the outer side of the bend (θ = π), the joint angle at the vertical pipe, at spacings 0.1 / 0.05 / 0.025, is:
+- k = 1: **71.5° / 71.9° / 72.1°**, a large kink that does not shrink;
+- k = 2: 7.3° / 3.7° / 1.9° (∝ h, C¹);
+- k = 3: 1.04° / 0.29° / 0.08° (≈ ∝ h², C²).
+
+That is the same law as the straight tube, more pronounced because a 90° turn needs much more bending.
+
 **Pitfalls.**
 - *"Smooth" needs refinement to be tested.* At a single resolution, the k = 2 joint angle (6.9°) is not much larger than the turning inside the free region (4.7°), so one picture cannot separate "a small kink" from "a smooth bend". The C^(k−1) claim is about how the angle behaves as h → 0.
 - *Enough fixed rings.* k = 3 needs three fixed rings beyond the free region. If the bands were thinner, L³ would reach the tube's open ends and use the one-sided boundary Laplacian (#5).
