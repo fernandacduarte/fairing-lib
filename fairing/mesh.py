@@ -96,6 +96,32 @@ def uv_sphere(n_lat, n_lon, radius=1.0):
     return V, np.vstack([south_cap, bands, north_cap])
 
 
+def irregular_sphere(n_lat, n_lon, radius=1.0, jitter=0.15, seed=0):
+    """UV sphere like :func:`uv_sphere`, with the ring vertices moved *along* the sphere.
+
+    Each ring vertex gets a uniform random offset of at most ``jitter`` times
+    the grid spacing in latitude and in longitude, and stays on the sphere.
+    The geometry is still an exact sphere (H = 1/R), but the triangles are
+    irregular: the setting of Fig. 4.6, where the uniform Laplacian also moves
+    vertices tangentially and the cotangent Laplacian does not.
+
+    As for :func:`irregular_grid`, ``jitter < 1/6`` keeps every triangle
+    correctly oriented (the bound holds in the (latitude, longitude) grid).
+    """
+    if not 0 <= jitter < 1 / 6:
+        raise ValueError("jitter must be in [0, 1/6) to guarantee that no triangle flips")
+    V, F = uv_sphere(n_lat, n_lon, radius)
+    rng = np.random.default_rng(seed)
+    ring = V[1:-1]
+    theta = np.arccos(np.clip(-ring[:, 2] / radius, -1, 1))     # polar angle from the south pole
+    phi = np.arctan2(ring[:, 1], ring[:, 0])
+    theta += rng.uniform(-jitter, jitter, len(ring)) * np.pi / n_lat
+    phi += rng.uniform(-jitter, jitter, len(ring)) * 2 * np.pi / n_lon
+    V = V.copy()
+    V[1:-1] = radius * np.stack([np.sin(theta) * np.cos(phi), np.sin(theta) * np.sin(phi), -np.cos(theta)], axis=1)
+    return V, F
+
+
 def tube(n_theta, n_z, radius=1.0, height=2.0):
     """Open cylinder along ``z`` from ``z = 0`` to ``z = height``.
 
