@@ -190,3 +190,14 @@ def test_refinement_reveals_C_k_minus_1_continuity(k, low, high):
         V, F, free = tube_blend(n_theta, n_z)
         angles.append(joint_turning_angle(solve_fair(V, F, free, k), n_theta, n_z, free))
     assert low < angles[1] / angles[0] < high
+
+
+def test_pipe_length_does_not_change_the_elbow():
+    # Only the k rings of fixed vertices next to the free region enter A_fc, so pipes of any
+    # length (with at least k rings) give exactly the same bend.
+    from fairing.mesh import pipe_elbow
+    bends = []
+    for length in (0.4, 1.2):
+        V, F, bend = pipe_elbow(n_theta=24, pipe_length=length, spacing=0.1)
+        bends.append(solve_fair(V, F, bend, 3)[bend])
+    assert np.allclose(bends[0], bends[1], atol=1e-9)

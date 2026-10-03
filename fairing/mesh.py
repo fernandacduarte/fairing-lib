@@ -135,7 +135,7 @@ def tube(n_theta, n_z, radius=1.0, height=2.0):
     return V, _quad_faces(n_theta, n_z, wrap_u=True)
 
 
-def pipe_elbow(n_theta=48, radius=1.0, bend_radius=1.5, pipe_length=2.0, spacing=0.1):
+def pipe_elbow(n_theta=48, radius=1.0, bend_radius=1.5, pipe_length=1.2, spacing=0.1):
     """Two pipes at 90 degrees joined by a quarter-torus bend (the setting of Fig. 4.8).
 
     A vertical pipe (axis z, from z = -pipe_length to 0) and a horizontal pipe
@@ -149,6 +149,9 @@ def pipe_elbow(n_theta=48, radius=1.0, bend_radius=1.5, pipe_length=2.0, spacing
 
     Returns ``V, F, bend`` where ``bend`` is a boolean mask of the bend's
     vertices (the free region of Fig. 4.8); the two straight pipes are the rest.
+    The default proportions (pipes 1.2 long for radius 1) are close to the
+    book's figure; the pipe length does not change the fairing result as long
+    as each pipe has at least k rings (only those enter the equations).
     """
     n_bend = int(round(bend_radius * np.pi / 2 / spacing))       # bend segments, each ~ spacing long
     n_pipe = int(round(pipe_length / spacing))                    # segments per straight pipe

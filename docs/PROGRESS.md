@@ -23,7 +23,7 @@
 - **Explicit smoothing rebuilds L every step** (mean curvature flow for cotan). `explicit_step_limit` = 2/(λ|μ_min|), via `eigsh` on the symmetric D^½MD^½, with a fixed start vector so figures are reproducible.
 - **Implicit smoothing solves the symmetric (D⁻¹ − hλM)x' = D⁻¹x** with `factorized` (SuperLU), one factorization per step reused for x, y, z; L rebuilt each step, as in the explicit version.
 - **Solvers: Cholesky for fairing only.** From #9 on, the fairing solver uses a sparse Cholesky factorization (CHOLMOD, `sksparse.cholmod.cho_factor`), as App. A recommends for SPD systems. Implicit smoothing (#8) deliberately keeps SciPy's LU (`factorized`) and is not migrated. The contrast is part of the study.
-- **Fairing:** `solve_fair` builds A = (−1)ᵏM(DM)ᵏ⁻¹ once from the input V (book's linear method), solves A_ff x_f = −A_fc x_c with `cho_factor`, takes a boolean `free_mask`, and refuses an all-free mask.
+- **Fairing:** `solve_fair` builds A = (−1)ᵏM(DM)ᵏ⁻¹ once from the input V (book's linear method), solves A_ff x_f = −A_fc x_c with `cho_factor`, takes a boolean `free_mask`, and refuses an all-free mask. Only the k fixed rings next to the free region matter (pipe length is irrelevant). Fig. 4.8 investigation (phase-4 note): our k = 3 elbow differs from the book's mostly by proportions/shading; straight-tube weights would fold the inner side.
 - **Noise is measured by `roughness`** (mean angle between adjacent face normals), not by the radius spread, which mixes noise with shape change.
 - **Plots:** sequential blue for magnitudes, blue–gray–red for signed values; compared panels share one scale; NaN = "not shown" (gray), used for boundary vertices; planar meshes drawn from above.
 

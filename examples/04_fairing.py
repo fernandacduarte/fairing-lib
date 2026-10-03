@@ -5,8 +5,8 @@ Run from the repository root:
     python examples/04_fairing.py
 
 Saves docs/img/09-sparsity.png, docs/img/10-membrane.png,
-docs/img/10-two-membranes.png, docs/img/11-tube-k123.png, docs/img/11-profile.png, docs/img/11-elbow-k123.png and
-docs/img/11-elbow-profiles.png.
+docs/img/10-two-membranes.png, docs/img/11-tube-k123.png, docs/img/11-profile.png, docs/img/11-elbow-k123.png,
+docs/img/11-elbow-profiles.png and docs/img/11-elbow-weights.png.
 """
 
 from pathlib import Path
@@ -21,6 +21,7 @@ from matplotlib.ticker import NullFormatter
 from fairing import mesh, viz
 from fairing.fairing import fairing_matrix, solve_fair
 from fairing.laplacian import mean_curvature
+from sksparse.cholmod import cho_factor
 
 IMG = Path(__file__).resolve().parents[1] / "docs" / "img"
 
@@ -284,8 +285,8 @@ def figure_elbow_profiles():
             ax.plot(rings(V)[j, [0, n_theta // 2], 0], rings(V)[j, [0, n_theta // 2], 2],
                     color="#c3c2b7", lw=1, zorder=0)
         ax.set_aspect("equal")
-        ax.set_xlim(-1.3, 3.6)
-        ax.set_ylim(-1.2, 2.9)
+        ax.set_xlim(-1.3, 2.9)
+        ax.set_ylim(-1.3, 2.9)
         ax.set_xlabel("x")
         ax.set_ylabel("z")
         for side in ("top", "right"):
@@ -298,6 +299,55 @@ def figure_elbow_profiles():
     print("saved", IMG / "11-elbow-profiles.png")
 
 
+# --- Investigation: where did Fig. 4.8's weights come from? -------------------------------
+# Botsch & Kobbelt 2004 (the source of Fig. 4.8) compute L once on the *original* surface and
+# move a handle. For a bent pipe, the original was plausibly a straight tube. These two helpers
+# compare that with our choice (weights from the quarter torus). Not part of the library.
+
+def straight_tube_like(V, n_theta, pipe_length=1.2, spacing=0.1):
+    """A straight vertical tube with the same rings as the elbow: ring j at z = (j - n_pipe) * spacing,
+    so the bottom pipe coincides with the elbow's and the bend rings continue straight up."""
+    n_rings = len(V) // n_theta
+    n_pipe = int(round(pipe_length / spacing))
+    theta = 2 * np.pi * np.arange(n_theta) / n_theta
+    z = (np.arange(n_rings) - n_pipe) * spacing
+    return np.stack([np.tile(np.cos(theta), n_rings), np.tile(np.sin(theta), n_rings), np.repeat(z, n_theta)], 1)
+
+
+def solve_with_weights_from(G, V, F, free, k):
+    """Like solve_fair, but the matrix is built from geometry G instead of V (the paper's setting)."""
+    A = fairing_matrix(G, F, k)
+    W = V.copy()
+    W[free] = cho_factor(A[free][:, free].tocsc()).solve(-(A[free][:, ~free] @ V[~free]))
+    return W
+
+
+def figure_elbow_weights():
+    """Issue #11 (investigation): k = 3 with weights from the quarter torus vs from a straight tube,
+    for several bend radii."""
+    radii = (1.25, 1.5, 2.0, 3.0)
+    columns = ("quarter torus (start)", "k = 3, weights from the torus", "k = 3, weights from a straight tube")
+    fig = plt.figure(figsize=(11, 13))
+    for row, Rb in enumerate(radii):
+        V, F, free = mesh.pipe_elbow(bend_radius=Rb)
+        face_free = free[F].any(axis=1)
+        results = (V, solve_fair(V, F, free, 3),
+                   solve_with_weights_from(straight_tube_like(V, 48), V, F, free, 3))
+        for col, W in enumerate(results):
+            ax = fig.add_subplot(len(radii), 3, 3 * row + col + 1, projection="3d")
+            for faces, color in ((F[~face_free], "#d9d8d4"), (F[face_free], "#5b62c9")):
+                ax.plot_trisurf(W[:, 0], W[:, 1], W[:, 2], triangles=faces, color=color,
+                                shade=True, linewidth=0, antialiased=False)
+            viz._set_equal_aspect(ax, W)
+            ax.view_init(10, -100)
+            ax.set_axis_off()
+            ax.set_title(f"bend radius {Rb}: {columns[col]}", fontsize=8.5)
+    fig.suptitle("Where do the weights come from? k = 3 elbows (pipe radius 1)", y=1.0)
+    fig.tight_layout()
+    fig.savefig(IMG / "11-elbow-weights.png", dpi=120, bbox_inches="tight")
+    print("saved", IMG / "11-elbow-weights.png")
+
+
 if __name__ == "__main__":
     IMG.mkdir(parents=True, exist_ok=True)
     figure_sparsity()
@@ -307,3 +357,4 @@ if __name__ == "__main__":
     figure_profile()
     figure_elbow()
     figure_elbow_profiles()
+    figure_elbow_weights()
