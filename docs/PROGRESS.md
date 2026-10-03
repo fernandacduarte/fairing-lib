@@ -1,39 +1,31 @@
 # Progress
 
 ## Status
-- [x] #1 Project setup: PR #17
-- [x] #2 Synthetic meshes and OBJ I/O: PR #18
-- [x] #3 Visualization helpers: PR #19
-- [x] #4 Topology helpers: PR #20 (Phase 1 complete)
-- [x] #5 Uniform Laplacian: PR #21
-- [x] #6 Cotangent Laplacian: PR #22 (Phase 2 complete)
+- [x] Phase 1: #1 setup (PR #17), #2 meshes + OBJ (PR #18), #3 viz (PR #19), #4 topology (PR #20)
+- [x] Phase 2: #5 uniform Laplacian (PR #21), #6 cotangent Laplacian (PR #22)
+- [x] Phase 3: #7 explicit smoothing (PR #23)
 
 ## Next
-- #7 Explicit Laplacian smoothing, §4.2 (Phase 3)
+- #8 Implicit Laplacian smoothing, §4.2 and App. A.1 (Phase 3)
 
 ## Decisions
-- **Issue numbers = plan step numbers.** All issues were created before any PR, so issue #N is step N of PLAN.md §3 (M1 is #16).
-- **Topology helpers live in `fairing/mesh.py`**, as in the PLAN.md §1 layout; there is no separate module.
-- **Figures are named `docs/img/<NN>-<name>.png`** with a zero-padded issue number, so they sort in order.
-- **Local environment:** `.venv` with Python 3.11 (`pip install -e ".[dev]"`); CI uses Python 3.11 too.
-- **One diagonal for every quad** (`_quad_faces`), because it gives every interior vertex valence 6. The regular grid is then a hexagonal lattice: all interior neighborhoods are identical and point-symmetric, so the uniform Laplacian is 0 there (baseline for #5), and k-rings have 1 + 3k(k+1) vertices (#4).
-- **Grid is centered** on `[-size/2, size/2]²`, which suits the `z = x² − y²` tests in #10 and #12. The **tube** runs from `z = 0` to `height`, and the **sphere** stores its rings from south to north.
-- **`irregular_grid` rejects `jitter ≥ 1/6`:** below that value, no triangle can flip (proof in the docstring).
-- **OBJ writes 17 significant digits,** so a save/load round trip is bit-exact.
-- **Colormaps by the job they do:** magnitudes (‖Lx‖, H) use a single-hue blue ramp (`viz.SEQUENTIAL`); signed quantities use blue ↔ gray ↔ red, centered at 0 (`viz.DIVERGING`). No rainbow maps, which invent false boundaries.
-- **Panels that are compared share one color scale** (`compare(shared_scale=True)`), so equal colors mean equal values.
-- **Interactive viewing lives in separate `examples/01_polyscope_*.py` scripts** (documented in the README), so the PNG scripts and the tests never need polyscope.
-- **Rings are computed by breadth-first search on the sparse adjacency matrix** (`ring_distance`). It returns a distance per vertex (−1 beyond `max_k`), and `k_ring` builds on it. One function covers both fixing k rings next to a free region (#9–#11) and coloring rings in figures.
-- **Index arrays, not masks:** `boundary_vertices` and `k_ring` return sorted vertex indices. Build a boolean mask with `np.isin(np.arange(n), idx)` when needed (e.g. `free_mask` in #9).
-- **Laplacians return `(L, D, M)`** with `L = D @ M` (App. A.1). M is kept separately because it is symmetric and the solvers in #8–#9 need it.
-- **Cotangent weights are accumulated per triangle:** each triangle adds cot of its angle at k to edge (i, j); duplicate sparse entries sum to cot α + cot β, and a boundary edge keeps a single cotangent.
-- **`laplacian="uniform" | "cotan"` strings** select an operator through `LAPLACIANS`; later functions (smoothing, fairing) take the same argument.
-- **NaN means "not shown" in plots:** `plot_mesh` draws faces with a NaN vertex scalar in neutral gray. Figures use this to exclude boundary vertices, whose one-sided Lx would swamp the color scale.
-- **Planar meshes are drawn from above** (`views=[(90, -90)]`); from the default oblique angle the jitter is invisible.
+- **Issue #N = plan step N** (all issues were created before any PR; M1 is #16). Figures are `docs/img/<NN>-<name>.png`.
+- **Environment:** `.venv`, Python 3.11, `pip install -e ".[dev]"`; CI uses 3.11. polyscope only in `examples/01_polyscope_*.py`, never in tests.
+- **Topology helpers live in `fairing/mesh.py`.** They return sorted index arrays; build masks with `np.isin(np.arange(n), idx)`.
+- **One diagonal per quad** (`_quad_faces`): interior valence 6, a hexagonal lattice where the uniform Laplacian is 0 and k-rings have 1 + 3k(k+1) vertices.
+- **Grid centered** on `[-size/2, size/2]²` (for the `z = x² − y²` tests in #10, #12); tube from `z = 0` to `height`; sphere rings stored south to north.
+- **`irregular_grid` rejects `jitter ≥ 1/6`** (no flipped triangles); OBJ writes 17 digits (bit-exact round trip).
+- **Rings by BFS** on the sparse adjacency (`ring_distance`, −1 beyond `max_k`); `k_ring` builds on it.
+- **Laplacians return `(L, D, M)`** with `L = D @ M`; M is symmetric, which the solvers in #8–#9 need. `laplacian="uniform" | "cotan"` selects one through `LAPLACIANS`.
+- **Cotangent weights accumulate per triangle** (cot of the angle at k goes to edge (i, j)); duplicates sum to cot α + cot β.
+- **Explicit smoothing rebuilds L every step** (mean curvature flow for cotan). `explicit_step_limit` = 2/(λ|μ_min|), via `eigsh` on the symmetric D^½MD^½.
+- **Noise is measured by `roughness`** (mean angle between adjacent face normals), not by the radius spread, which mixes noise with shape change.
+- **Plots:** sequential blue for magnitudes, blue–gray–red for signed values; compared panels share one scale; NaN = "not shown" (gray), used for boundary vertices; planar meshes drawn from above.
 
 ## Gotchas
-- The book PDFs must never enter the repo (it is public). `.gitignore` excludes `*.pdf` as a safety net.
-- **Barycentric area is wrong at UV-sphere poles:** it is 4/3 of the Voronoi cell, so H = ¾·(1/R) there, at any resolution. Elsewhere H converges like h². Fixed only by mixed Voronoi areas (M1, #16).
-- *Graph distance is not Euclidean distance.* On the grid, the k-ring around a vertex is a hexagon sheared along the diagonal direction. Fixing "k rings" is a topological notion, so on irregular meshes the fixed band can be uneven in width.
-- The uniform ‖Lx‖ scales with the edge length h (≈ 0.12·h on the irregular grids), so it is not a curvature estimate: 0.004 instead of 2H = 2 on the unit sphere. Only area-normalized Laplacians (#6) approximate Δx = −2H·n.
-- Colored surfaces have no lighting (matplotlib limitation), so 3D shape is harder to read than on plain meshes. Use polyscope when shape matters.
+- The book PDFs must never enter the repo (public). `.gitignore` excludes `*.pdf`.
+- **Barycentric area is wrong at UV-sphere poles** (4/3 of the Voronoi cell): H = ¾·(1/R) there at any resolution; elsewhere H converges like h². Fixed by M1 (#16).
+- The uniform ‖Lx‖ is a length (≈ 0.12·h), not a curvature; only zero vs non-zero is comparable with the cotangent ‖Lx‖.
+- **Explicit cotangent smoothing is stiff:** stable h = 2.7·10⁻⁵ on the 24×48 UV sphere (uniform: 1.34), set by the pole triangles. Laplacian flow shrinks (r² = r₀² − 4λt on a sphere); the uniform flow also distorts the shape.
+- Graph distance is not Euclidean: a band of k fixed rings can vary in physical width on irregular meshes.
+- Colored matplotlib surfaces are unlit, and face colors average out single-vertex outliers: use numbers for quantitative claims.
