@@ -75,6 +75,22 @@ Tests (`tests/test_fairing.py`), for k = 1, 2, 3 and both Laplacians: A_ff is sy
 - **Uniform weights** ignore the geometry. Their implicit "parametrization" is the mesh connectivity. On our nearly regular grid that behaves like the flat (x, y) domain, so uniform fairing approximates **Eq. 4.8 over (x, y)**.
 - **Cotangent weights** are the Laplace–Beltrami operator of the *input surface*. When the input is already close to the answer, freezing them is a good approximation of Δₛ, and one solve lands close to **Eq. 4.7, the minimal surface**. When the input is badly damaged, the frozen weights describe a crumpled surface, and the result inherits the damage.
 
+**Is this really what the book does, and why is it not the minimal surface?**
+
+1. *Frozen weights are the book's method.* On p. 59 the book discretizes Δx = 0 with the discrete Laplace–Beltrami operator and calls the result a **linear** system, Lx = 0. Linear means L is a constant matrix: computed once from the mesh at hand (here, the input) and never updated during the solve.
+2. *The book deliberately solves a substitute problem.* Area (Eq. 4.7) is strongly non-linear, so the book replaces it with the quadratic Dirichlet energy (Eq. 4.8), whose minimum is one linear solve (p. 58). In "Nonlinear smoothing" (§4.4, p. 62) it acknowledges the price: methods that solve the true non-linear problem are harder, but their results are better and depend less on the initial triangulation or parametrization.
+3. *When the substitute equals the real thing.* For any parametrization, ‖x_u‖² + ‖x_v‖² ≥ 2‖x_u‖‖x_v‖ ≥ 2‖x_u × x_v‖, so **Dirichlet energy ≥ 2 × area**. Equality holds only when ‖x_u‖ = ‖x_v‖ and x_u ⊥ x_v, i.e. for a *conformal* parametrization. Then minimizing one minimizes the other.
+4. *Where the parametrization comes from.* Cotangent weights computed from a mesh M measure the Dirichlet energy of the result **relative to M**: M plays the role of the parametrization. So the answer depends on what the weights were frozen from:
+
+| weights frozen from | the substitute energy is | one solve gives |
+|---|---|---|
+| a surface already close to the answer (smooth saddle) | ≈ area (the result is nearly a conformal copy of M) | ≈ minimal surface, mean \|H\| ≈ 0.002 |
+| the flat grid | Dirichlet energy over the plane | the harmonic graph x² − y² (Eq. 4.8) |
+| a mildly noisy start (σ ≈ 0.3 h) | Dirichlet energy relative to a noisy shape | in between: smooth, mean \|H\| ≈ 0.064 |
+| a heavily noisy start (σ > h) | Dirichlet energy relative to a crumpled shape | corrupted, mean \|H\| ≈ 2 to 47 |
+
+The uniform weights are the same story with a "parametrization" that ignores geometry altogether: the mesh connectivity. **Practical lesson:** the book's linear method needs a reasonable starting shape for the free region. Repeating the solve with weights recomputed from each result would converge to the true minimal surface; that non-linear route is left for #14, by decision.
+
 **The test cases.** An irregular grid on [−0.5, 0.5]² whose disk of radius 0.3 is free; the free vertices start at the target height, with or without noise.
 - **A, planar boundary.** z = 0 on all constrained vertices. Then z = 0 is the unique solution of Lz = 0, *whatever the weights*, so the result is exactly flat for both Laplacians.
 - **B, boundary heights z = x² − y².** This function is harmonic in the plane (∂²/∂x² + ∂²/∂y² = 2 − 2 = 0), so it is the exact answer of **Eq. 4.8 over the flat (x, y) domain**. But it is **not** a minimal surface: its mean curvature on the disk is |H| ≈ 0.07. So it is the right reference for the uniform weights, and the wrong one for the cotangent weights.
