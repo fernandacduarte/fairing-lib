@@ -94,7 +94,12 @@ Tests (`tests/test_fairing.py`):
 
 ![Membrane surfaces, cases A and B](../img/10-membrane.png)
 
-`docs/img/10-membrane.png`, colored by height (gray = 0), cotangent weights, one solve. Top: the noisy disk becomes exactly flat. Bottom: with saddle-shaped boundary heights, the noisy disk becomes a smooth surface continuing the boundary. The joint is C⁰: a membrane matches the boundary *positions*, not its slope; #11 shows the kink.
+`docs/img/10-membrane.png`, colored by height (gray = 0, shared scale ±0.25). Setup: a 31 × 31 grid, h ≈ 0.033; the 249 free vertices start at the target height plus noise σ = 0.01 ≈ 0.3 h. One solve with cotangent weights frozen from that noisy input.
+- **Top (case A):** the result is exactly flat (max |z| = 0), as it must be for any weights. What the picture cannot show: the frozen weights come from a non-planar mesh, so the free vertices also slide *sideways*, by up to 0.007 (about 0.2 h).
+- **Bottom (case B):** the result is smooth in height and continues the saddle; its heights are within 1.6·10⁻³ of x² − y², less than 1% of the color scale. But it is **not** the minimal surface: its mean |H| is 0.064, almost the saddle's 0.068, whereas a perfectly smooth start reaches ≈ 0.002 (see the next figure). The weights were frozen from the noisy start, so the shape depends partly on the noise, and the free vertices slide by up to 0.011 (a third of an edge).
+- With stronger noise (σ = 0.05 ≈ 1.5 h) the same picture would show sliding of more than one edge and a mean |H| of about 2: the "corrupted" case of the pitfall. That is why this figure uses σ = 0.01.
+
+Heights alone cannot tell these surfaces apart; `10-two-membranes.png` measures H for that. The joint at the rim is C⁰: a membrane matches the boundary *positions*, not its slope (#11 shows the kink).
 
 ![Two different membranes](../img/10-two-membranes.png)
 
