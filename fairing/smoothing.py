@@ -12,21 +12,31 @@ import scipy.sparse.linalg as spla
 from .laplacian import LAPLACIANS
 
 
-def explicit_smoothing(V, F, h, lam=1.0, n_iter=1, laplacian="uniform"):
+def explicit_smoothing(V, F, h, lam=1.0, n_iter=1, laplacian="uniform", fixed_mask=None, rebuild=True):
     """Explicit Euler Laplacian smoothing, Sec. 4.2: ``x <- x + h λ L x``.
 
-    ``L`` is rebuilt from the current positions at every iteration, so each
-    step uses the Laplace-Beltrami operator of the current surface (for the
-    cotangent Laplacian this is the discrete mean curvature flow). With the
+    By default ``L`` is rebuilt from the current positions at every iteration,
+    so each step uses the Laplace-Beltrami operator of the current surface (for
+    the cotangent Laplacian this is the discrete mean curvature flow). With the
     uniform Laplacian ``L`` depends only on ``F``, so rebuilding changes nothing.
+
+    With ``rebuild=False``, ``L`` is computed once from the input ``V`` and kept
+    fixed: the matrix form ``f(t + h) = f(t) + h λ L f(t)`` of Sec. 4.2. In that
+    form, one step with ``fixed_mask`` is one damped Jacobi iteration for
+    ``L x = 0`` on the free vertices (Sec. 4.3, p. 61; Jacobi: App. A.3.1).
+
+    ``fixed_mask`` (optional, boolean) marks vertices that keep their positions.
 
     The step is stable only for ``h <= h_max = explicit_step_limit(...)``; see there.
     """
     V = np.asarray(V, dtype=float).copy()
     build = LAPLACIANS[laplacian]
+    free = np.ones(len(V), dtype=bool) if fixed_mask is None else ~np.asarray(fixed_mask, dtype=bool)
+    L = build(V, F)[0]
     for _ in range(n_iter):
-        L = build(V, F)[0]
-        V += h * lam * (L @ V)
+        if rebuild:
+            L = build(V, F)[0]
+        V[free] += h * lam * (L @ V)[free]
     return V
 
 
@@ -50,7 +60,7 @@ def explicit_step_limit(V, F, lam=1.0, laplacian="uniform"):
     return 2.0 / (lam * abs(mu_min))
 
 
-def implicit_smoothing(V, F, h, lam=1.0, n_iter=1, laplacian="uniform"):
+def implicit_smoothing(V, F, h, lam=1.0, n_iter=1, laplacian="uniform", fixed_mask=None):
     """Implicit Euler Laplacian smoothing, Sec. 4.2: ``(I - h λ L) x' = x``.
 
     The Laplacian is evaluated at the new positions ``x'``, so each step solves
@@ -66,15 +76,27 @@ def implicit_smoothing(V, F, h, lam=1.0, n_iter=1, laplacian="uniform"):
     which is factorized once per step and reused for x, y and z. As in
     :func:`explicit_smoothing`, ``L`` is rebuilt from the current positions at
     every step.
+
+    ``fixed_mask`` (optional, boolean) marks vertices that keep their positions.
+    They are handled as in :func:`fairing.fairing.solve_fair`: their columns move
+    to the right-hand side and their rows are dropped (App. A.1). With fixed
+    vertices and ``h -> infinity``, one step tends to the solution of ``L x = 0``
+    on the free vertices, i.e. to ``solve_fair(..., k=1)`` (Sec. 4.3, p. 61).
     """
     V = np.asarray(V, dtype=float).copy()
     build = LAPLACIANS[laplacian]
+    fixed = np.zeros(len(V), dtype=bool) if fixed_mask is None else np.asarray(fixed_mask, dtype=bool)
+    free = ~fixed
+    if not free.any():
+        return V
     for _ in range(n_iter):
         _, D, M = build(V, F)
         D_inv = sp.diags(1.0 / D.diagonal())
-        solve = spla.factorized((D_inv - h * lam * M).tocsc())   # (D^-1 - h λ M), App. A.1
+        A = (D_inv - h * lam * M).tocsr()                         # (D^-1 - h λ M), App. A.1
         rhs = D_inv @ V                                           # D^-1 x
-        V = np.column_stack([solve(rhs[:, c]) for c in range(3)])
+        rhs = rhs[free] - A[free][:, fixed] @ V[fixed]            # fixed columns to the right
+        solve = spla.factorized(A[free][:, free].tocsc())
+        V[free] = np.column_stack([solve(rhs[:, c]) for c in range(3)])
     return V
 
 

@@ -6,8 +6,8 @@ Run from the repository root:
 
 Saves docs/img/09-sparsity.png, docs/img/10-membrane.png,
 docs/img/10-two-membranes.png, docs/img/11-tube-k123.png, docs/img/11-profile.png, docs/img/11-elbow-k123.png,
-docs/img/11-elbow-profiles.png, docs/img/11-elbow-weights.png and
-docs/img/12-uniform-vs-cotan-fairing.png.
+docs/img/11-elbow-profiles.png, docs/img/11-elbow-weights.png,
+docs/img/12-uniform-vs-cotan-fairing.png and docs/img/13-flow-to-fair.png.
 """
 
 from pathlib import Path
@@ -21,7 +21,8 @@ from matplotlib.ticker import NullFormatter
 
 from fairing import mesh, viz
 from fairing.fairing import fairing_matrix, solve_fair
-from fairing.laplacian import mean_curvature
+from fairing.laplacian import LAPLACIANS, mean_curvature
+from fairing.smoothing import explicit_step_limit, implicit_smoothing
 from sksparse.cholmod import cho_factor
 
 IMG = Path(__file__).resolve().parents[1] / "docs" / "img"
@@ -396,6 +397,56 @@ def figure_fig49():
     print("saved", IMG / "12-uniform-vs-cotan-fairing.png")
 
 
+def figure_flow_to_fair():
+    """Issue #13: fairing (k = 1) as the limit of the Laplacian flow (Sec. 4.3, p. 60-61).
+
+    Left, claim 3: one implicit step with growing h tends to solve_fair(k = 1).
+    Right, claims 2 and 4: explicit steps with L fixed are damped Jacobi iterations and
+    converge to the fair surface.
+    """
+    V, F, free, r = disk_problem(81, saddle, interior_noise=0.01)
+    colors = {"uniform": "#86b6ef", "cotan": "#0d366b"}
+    fig, (left, right) = plt.subplots(1, 2, figsize=(13, 5.2))
+
+    # claim 3: one implicit step, h -> infinity
+    hs = 10.0 ** np.arange(-4, 10.5, 0.5)
+    for lap in ("uniform", "cotan"):
+        fair = solve_fair(V, F, free, 1, lap)
+        gaps = [np.abs(implicit_smoothing(V, F, h, laplacian=lap, fixed_mask=~free) - fair).max() for h in hs]
+        left.loglog(hs, gaps, "o-", color=colors[lap], lw=2, ms=4, label=f"{lap} weights")
+        left.loglog(hs[-6:], gaps[-1] * hs[-1] / hs[-6:], "--", color="#8a8984", lw=1.2,
+                    label="slope −1 (∝ 1/h)" if lap == "cotan" else None)
+    left.set_xlabel("step size hλ of one implicit step")
+    left.set_ylabel("max |x − x_fair|")
+    left.set_title("(a) one implicit step → the fair surface as h → ∞")
+
+    # claims 2 and 4: explicit steps with L fixed = damped Jacobi iterations
+    n_iter = 3000
+    for lap in ("uniform", "cotan"):
+        fair = solve_fair(V, F, free, 1, lap)
+        h = 0.9 * explicit_step_limit(V, F, laplacian=lap)
+        # explicit_smoothing(..., fixed_mask=~free, rebuild=False), unrolled to record every step:
+        # L is built once from V and kept fixed (the tests check this equals the library call)
+        L = LAPLACIANS[lap](V, F)[0]
+        W, gaps = V.copy(), [np.abs(V - fair).max()]
+        for _ in range(n_iter):
+            W[free] += h * (L @ W)[free]
+            gaps.append(np.abs(W - fair).max())
+        right.semilogy(gaps, color=colors[lap], lw=2, label=f"{lap} weights, h = 0.9 h_max")
+    right.set_xlabel("number of explicit steps with L fixed (damped Jacobi iterations)")
+    right.set_ylabel("max |x − x_fair|")
+    right.set_title("(b) explicit steps with L fixed → the fair surface")
+    for ax in (left, right):
+        ax.grid(True, color="#e6e5e1", lw=0.8)
+        for side in ("top", "right"):
+            ax.spines[side].set_visible(False)
+        ax.legend(frameon=False, fontsize=9, loc="lower left")
+    fig.suptitle("Fairing (k = 1) as the limit of the Laplacian flow: free disk (radius 0.3) on an 81 × 81 grid", y=1.0)
+    fig.tight_layout()
+    fig.savefig(IMG / "13-flow-to-fair.png", dpi=150, bbox_inches="tight")
+    print("saved", IMG / "13-flow-to-fair.png")
+
+
 if __name__ == "__main__":
     IMG.mkdir(parents=True, exist_ok=True)
     figure_sparsity()
@@ -407,3 +458,4 @@ if __name__ == "__main__":
     figure_elbow_profiles()
     figure_elbow_weights()
     figure_fig49()
+    figure_flow_to_fair()

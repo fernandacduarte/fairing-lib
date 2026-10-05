@@ -37,7 +37,7 @@ Fairing asks for Lᵏx = **0** (§4.3), so **b = 0**, and the term (−1)ᵏD⁻
 
 where A_fc collects those columns, restricted to the free rows. That is `fairing.py:71`. The factor (−1)ᵏ is not lost: `fairing_matrix` already multiplies the whole matrix by it, so A_fc carries it, and (−1)ᵏ·0 is still 0.
 
-Compare with implicit smoothing (#8), where b ≠ 0. There the system (I − hλL)x' = x has b = x, and the code does compute D⁻¹b (`rhs = D_inv @ V`, `smoothing.py:76`). The two steps show the two halves of the formula. `solve_fair` handles only b = 0. A problem with b ≠ 0, such as the deformations mentioned on p. 61, would add (−1)ᵏ D_ff⁻¹ b_f to the right-hand side, using the D entries of the free rows.
+Compare with implicit smoothing (#8), where b ≠ 0. There the system (I − hλL)x' = x has b = x, and the code does compute D⁻¹b (`rhs = D_inv @ V`, `implicit_smoothing`, `smoothing.py:96`). The two steps show the two halves of the formula. `solve_fair` handles only b = 0. A problem with b ≠ 0, such as the deformations mentioned on p. 61, would add (−1)ᵏ D_ff⁻¹ b_f to the right-hand side, using the D entries of the free rows.
 
 | Book | Formula | Code |
 |---|---|---|
@@ -89,7 +89,7 @@ Tests (`tests/test_fairing.py`), for k = 1, 2, 3 and both Laplacians: A_ff is sy
 | a mildly noisy start (σ ≈ 0.3 h) | Dirichlet energy relative to a noisy shape | in between: smooth, mean \|H\| ≈ 0.064 |
 | a heavily noisy start (σ > h) | Dirichlet energy relative to a crumpled shape | corrupted, mean \|H\| ≈ 2 to 47 |
 
-The uniform weights are the same story with a "parametrization" that ignores geometry altogether: the mesh connectivity. **Practical lesson:** the book's linear method needs a reasonable starting shape for the free region. Repeating the solve with weights recomputed from each result would converge to the true minimal surface; that non-linear route is left for #14, by decision.
+The uniform weights are the same story with a "parametrization" that ignores geometry altogether: the mesh connectivity. **Practical lesson:** the book's linear method needs a reasonable starting shape for the free region.
 
 **The test cases.** An irregular grid on [−0.5, 0.5]² whose disk of radius 0.3 is free; the free vertices start at the target height, with or without noise.
 - **A, planar boundary.** z = 0 on all constrained vertices. Then z = 0 is the unique solution of Lz = 0, *whatever the weights*, so the result is exactly flat for both Laplacians.
@@ -294,3 +294,56 @@ To explore it in 3D, run `examples/04_polyscope_fig49.py`. It shows the same fou
 - *Refinement does not fix modeling errors.* A discretization error shrinks with h; this one does not, because the density *ratio* stays the same.
 - *Perspective distorts top views.* matplotlib's 3D axes use a perspective camera, so a square seen from above looked barrel-shaped. Top-down panels use an orthographic projection.
 - *We have seen this before.* The same insensitivity to geometry produced the uniform Laplacian's flaw on flat irregular grids (#5), its tangential drift in smoothing (#8), its pinched tube (#11), and the fold on the elbow's compressed inner side (#11).
+
+## #13 Fairing as the limit of the flow
+
+**What the book claims.** §4.3 (p. 60–61) connects fairing back to the smoothing flow of §4.2, with four statements. For k = 1:
+1. Fair surfaces satisfy Δx = 0, so they are **steady states** of the flow ∂x/∂t = λΔx: the update vector vanishes there.
+2. **One explicit time step** of the flow is equivalent to **one (damped) Jacobi iteration** for solving Δx = 0.
+3. **One implicit time step with h = ∞** leads directly to Δx = 0.
+4. As a consequence, Laplacian flows **converge** to fair surfaces.
+
+In 2 and 4 the flow is the matrix form of §4.2, f(t + h) = f(t) + hλLf(t), with L a fixed matrix. All tests and figures below use the same L as `solve_fair`: built once from the input mesh.
+
+**Theory → code.** Two smoothing functions gained an optional `fixed_mask`, so that smoothing and fairing can run on the same problem: fixed vertices keep their positions, exactly as the constrained vertices in `solve_fair`. `explicit_smoothing` also gained `rebuild=False`, which builds L once from the input and keeps it fixed (by default it is rebuilt at every step, as decided in #7).
+
+| Book | Formula | Code |
+|---|---|---|
+| §4.2, p. 55 (matrix form) | x_f ← x_f + hλ (Lx)_f, L fixed | `explicit_smoothing(..., fixed_mask, rebuild=False)`, `fairing/smoothing.py:39` |
+| App. A.1 | implicit step with fixed vertices: their columns to the right | `implicit_smoothing`, `fairing/smoothing.py:97` |
+| §4.3, p. 61 | the fair surface to compare with | `solve_fair(..., k=1)` |
+
+**Claim 2, worked out.** Write the membrane system as A x = b on the free vertices, with A = −M_ff and b = M_fc x_c (the fixed values moved to the right, #9). The Jacobi iteration of App. A.3.1 updates each free vertex as x_i^J = (b_i − Σ_{j≠i} a_ij x_j) / a_ii. One explicit step does x_i + hλ D_ii (Mx)_i, which can be rewritten as
+
+  x_i ← (1 − ωᵢ) x_i + ωᵢ x_i^J,  with ωᵢ = hλ · D_ii · |m_ii|:
+
+a Jacobi iteration *damped* by the factor ωᵢ. For uniform weights D_ii |m_ii| = 1, so ωᵢ = hλ, and hλ = 1 is plain Jacobi: every vertex jumps to its neighbors' centroid (#7). For cotangent weights the damping varies per vertex (ωᵢ = hλ Σⱼ wᵢⱼ / (2Aᵢ)). A test checks this identity to 10⁻¹² for both.
+
+**Claim 3, worked out.** One implicit step with fixed vertices solves, in the symmetric form of App. A.1,
+
+  (D⁻¹ − hλM)_ff x'_f = D⁻¹_ff x_f + hλ M_fc x_c.
+
+Divide by hλ:
+
+  −M_ff x'_f − M_fc x_c = −D⁻¹_ff x_f / (hλ).
+
+As h → ∞ the right-hand side vanishes, leaving M_ff x'_f + M_fc x_c = 0, which is the membrane system of #9. The leftover term is O(1/h), so the distance to the fair surface should shrink like 1/h. (The 1/h rate is derived here from the book's equations; the book itself only states the limit.)
+
+Tests (`tests/test_fairing.py`), each named after its claim:
+- smoothing keeps fixed vertices;
+- *(1)* with uniform weights, an explicit and an implicit step leave the fair surface unchanged (for cotangent weights, L x_fair = 0 on the free vertices is the #9 test);
+- *(2)* one explicit step equals one damped Jacobi iteration, for both Laplacians;
+- *(3)* one implicit step approaches `solve_fair(k=1)` monotonically for h = 10², …, 10⁹, by a factor of 10 ± 5% per decade, ending below 10⁻⁸;
+- *(4)* 3000 explicit steps at 0.9 h_max reach the fair surface to 10⁻¹⁰, for both Laplacians.
+
+**What the figures show.**
+
+![Fairing as the limit of the flow](../img/13-flow-to-fair.png)
+
+`docs/img/13-flow-to-fair.png`: the saddle problem of #10 on an 81 × 81 irregular grid; the free disk (radius 0.3, 1802 vertices) starts with noise σ = 0.01.
+- *(a) Claim 3.* The distance between one implicit step and the fair surface, against hλ. For small h the step barely moves. Then both curves become lines of slope −1 down to round-off (10⁻¹¹–10⁻¹⁵ at hλ = 10¹⁰). The cotangent curve sits further left because its matrix entries are larger (they scale like 1/edge², vs about 1 for uniform), so what counts as a "large" h depends on the operator.
+- *(b) Claims 2 and 4.* Explicit steps with L fixed, i.e. damped Jacobi iterations, at 0.9 h_max. The distance to the fair surface keeps decreasing: after 3000 steps it is 3·10⁻⁹ (uniform) and 2·10⁻⁵ (cotangent).
+
+**Pitfalls.**
+- *The same L.* The flow converges to `solve_fair`'s surface because both use the same matrix. The explicit flow needs `rebuild=False` for this (with cotangent weights a rebuilt L is a different matrix at every step), and the implicit h-sweep uses one step from the input mesh.
+- *"Large h" depends on the operator's scale.* The cotangent L scales like 1/edge², so its implicit steps reach the limit at a much smaller h than the uniform ones; compare h·|μ|, not h.

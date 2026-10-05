@@ -5,10 +5,10 @@
 - [x] Phase 2: #5 uniform Laplacian (PR #21), #6 cotangent Laplacian (PR #22)
 - [x] Phase 3: #7 explicit smoothing (PR #23), #8 implicit smoothing (PR #24)
 - [x] Setup: sparse Cholesky (CHOLMOD via scikit-sparse) for the fairing solver (PR #25)
-- [x] Phase 4: #9 constrained solver (PR #26), #10 membrane (PR #27), #11 thin plate / min. variation (PR #28), #12 uniform vs cotan (PR #29)
+- [x] Phase 4: #9 constrained solver (PR #26), #10 membrane (PR #27), #11 thin plate / min. variation (PR #28), #12 uniform vs cotan (PR #29), #13 flow → fair (PR #30) (Phase 4 complete)
 
 ## Next
-- #13 Fairing as the limit of the implicit flow, p. 61 (Phase 4)
+- #14 Bunny hole filling with thin-plate fairing (Phase 5). Ask the user before downloading the bunny; decide how the damaged region's weights are obtained (deferred from #10).
 
 ## Decisions
 - **Issue #N = plan step N** (all issues were created before any PR; M1 is #16). Figures are `docs/img/<NN>-<name>.png`.
@@ -20,7 +20,7 @@
 - **Laplacians return `(L, D, M)`** with `L = D @ M`; M is symmetric, which the solvers in #8–#9 need. `laplacian="uniform" | "cotan"` selects one through `LAPLACIANS`.
 - **Cotangent weights accumulate per triangle** (cot of the angle at k goes to edge (i, j)); duplicates sum to cot α + cot β.
 - **Explicit smoothing rebuilds L every step** (mean curvature flow for cotan). `explicit_step_limit` = 2/(λ|μ_min|), via `eigsh` on the symmetric D^½MD^½, with a fixed start vector so figures are reproducible.
-- **Implicit smoothing solves the symmetric (D⁻¹ − hλM)x' = D⁻¹x** with `factorized` (SuperLU), one factorization per step reused for x, y, z; L rebuilt each step, as in the explicit version.
+- **Implicit smoothing solves the symmetric (D⁻¹ − hλM)x' = D⁻¹x** with `factorized` (SuperLU), one factorization per step reused for x, y, z; L rebuilt each step, as in the explicit version. Both smoothing functions take `fixed_mask`; `explicit_smoothing(..., rebuild=False)` keeps L fixed (the book's matrix form). #13 tests the claims of p. 60–61: steady state, explicit step = damped Jacobi, one implicit step with h → ∞ = `solve_fair(k=1)` (gap ∝ 1/h), convergence.
 - **Solvers: Cholesky for fairing only.** From #9 on, the fairing solver uses a sparse Cholesky factorization (CHOLMOD, `sksparse.cholmod.cho_factor`), as App. A recommends for SPD systems. Implicit smoothing (#8) deliberately keeps SciPy's LU (`factorized`) and is not migrated. The contrast is part of the study.
 - **Fairing:** `solve_fair` builds A = (−1)ᵏM(DM)ᵏ⁻¹ once from the input V (book's linear method), solves A_ff x_f = −A_fc x_c with `cho_factor`, takes a boolean `free_mask`, and refuses an all-free mask. Only the k fixed rings next to the free region matter (pipe length is irrelevant). Fig. 4.8 investigation (phase-4 note): our k = 3 elbow differs from the book's mostly by proportions/shading; straight-tube weights would fold the inner side.
 - **Noise is measured by `roughness`** (mean angle between adjacent face normals), not by the radius spread, which mixes noise with shape change.

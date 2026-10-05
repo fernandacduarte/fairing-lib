@@ -243,3 +243,85 @@ def test_uniform_artifacts_do_not_vanish_with_refinement():
     # "parameter domain" in the same way at every resolution.
     coarse, fine = thin_plate_error(41, 0.7, "uniform")[0], thin_plate_error(81, 0.7, "uniform")[0]
     assert fine > 0.5 * coarse
+
+
+# ---------------------------------------------------------------------------
+# Fairing as the limit of the flow (Sec. 4.3, p. 60-61)
+# ---------------------------------------------------------------------------
+# The book's claims, k = 1:
+#   (1) fair surfaces are steady states of the flow dx/dt = lam L x;
+#   (2) one explicit step of the flow is one (damped) Jacobi iteration for L x = 0;
+#   (3) one implicit step with h = infinity gives L x = 0 directly;
+#   (4) hence the flow converges to the fair surface.
+# In (2) and (4) the flow uses L as a fixed matrix: explicit_smoothing(..., rebuild=False).
+
+from fairing.smoothing import explicit_smoothing, explicit_step_limit, implicit_smoothing
+
+
+def test_smoothing_keeps_fixed_vertices():
+    V, F, free, _ = disk_problem(21, saddle, interior_noise=0.02)
+    for W in (implicit_smoothing(V, F, 0.01, laplacian="cotan", fixed_mask=~free),
+              explicit_smoothing(V, F, 1e-4, laplacian="cotan", fixed_mask=~free, rebuild=False)):
+        assert np.array_equal(W[~free], V[~free])
+        assert not np.allclose(W[free], V[free])
+
+
+def test_claim1_fair_surface_is_a_steady_state():
+    # Uniform weights do not depend on positions, so the flow's L is the solve's L.
+    # (For any weights, L x_fair = 0 on the free vertices is tested in #9.)
+    V, F, free, _ = disk_problem(21, saddle, interior_noise=0.02)
+    fair = solve_fair(V, F, free, 1, "uniform")
+    for step in (explicit_smoothing, implicit_smoothing):
+        assert np.allclose(step(fair, F, 0.5, laplacian="uniform", fixed_mask=~free), fair, atol=1e-12)
+
+
+@pytest.mark.parametrize("laplacian", ["uniform", "cotan"])
+def test_claim2_one_explicit_step_is_one_damped_jacobi_iteration(laplacian):
+    # Jacobi (App. A.3.1) for A x = b with A = -M on the free vertices and b = -A_fc x_c:
+    #   x_J = (b_f - (A_ff - diag) x_f) / diag.  One explicit step gives (1 - w) x + w x_J
+    # with damping w_i = h lam D_ii |m_ii| (= h lam for uniform weights).
+    V, F, free, _ = disk_problem(21, saddle, interior_noise=0.02)
+    _, D, M = LAPLACIANS[laplacian](V, F)
+    A = fairing_matrix(V, F, 1, laplacian).tocsr()                # -M
+    A_ff, A_fc = A[free][:, free], A[free][:, ~free]
+    diag = A_ff.diagonal()
+    x_f = V[free]
+    x_jacobi = ((-(A_fc @ V[~free])) - (A_ff @ x_f - diag[:, None] * x_f)) / diag[:, None]
+    h = 0.5 * explicit_step_limit(V, F, laplacian=laplacian)
+    w = (h * D.diagonal()[free] * diag)[:, None]
+    expected = (1 - w) * x_f + w * x_jacobi
+    W = explicit_smoothing(V, F, h, laplacian=laplacian, fixed_mask=~free, rebuild=False)
+    assert np.allclose(W[free], expected, atol=1e-12)
+
+
+@pytest.mark.parametrize("laplacian", ["uniform", "cotan"])
+def test_claim3_one_implicit_step_tends_to_the_membrane_like_one_over_h(laplacian):
+    # (D^-1 - h M)_ff x'_f = D^-1_ff x_f + h M_fc x_c; dividing by h, the D^-1 x_f / h term
+    # vanishes as h -> infinity, leaving the membrane system M_ff x_f + M_fc x_c = 0.
+    V, F, free, _ = disk_problem(21, saddle, interior_noise=0.02)
+    fair = solve_fair(V, F, free, 1, laplacian)                    # same L: built from V
+    hs = 10.0 ** np.arange(2, 10)
+    gaps = [np.abs(implicit_smoothing(V, F, h, laplacian=laplacian, fixed_mask=~free) - fair).max() for h in hs]
+    assert all(a > b for a, b in zip(gaps, gaps[1:]))              # shrinks as h grows
+    assert np.isclose(gaps[-2] / gaps[-1], 10, rtol=0.05)         # like 1/h for large h
+    assert gaps[-1] < 1e-8 * np.abs(V).max()
+
+
+@pytest.mark.parametrize("laplacian", ["uniform", "cotan"])
+def test_claim4_the_explicit_flow_converges_to_the_fair_surface(laplacian):
+    V, F, free, _ = disk_problem(21, saddle, interior_noise=0.02)
+    fair = solve_fair(V, F, free, 1, laplacian)
+    h = 0.9 * explicit_step_limit(V, F, laplacian=laplacian)
+    W = explicit_smoothing(V, F, h, n_iter=3000, laplacian=laplacian, fixed_mask=~free, rebuild=False)
+    assert np.abs(W - fair).max() < 1e-10
+
+
+def test_unrolled_frozen_flow_matches_explicit_smoothing():
+    # examples/04_fairing.py unrolls the frozen explicit flow to record every step
+    V, F, free, _ = disk_problem(21, saddle, interior_noise=0.02)
+    L = LAPLACIANS["cotan"](V, F)[0]
+    h = 0.5 * explicit_step_limit(V, F, laplacian="cotan")
+    W = V.copy()
+    for _ in range(5):
+        W[free] += h * (L @ W)[free]
+    assert np.allclose(W, explicit_smoothing(V, F, h, n_iter=5, laplacian="cotan", fixed_mask=~free, rebuild=False))
