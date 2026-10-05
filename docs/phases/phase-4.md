@@ -287,6 +287,8 @@ Tests (`tests/test_fairing.py`): uniform is exact on the regular grid. On the gr
 3. Uniform thin plate: four dark blobs of spurious curvature inside the disk, exactly where the dense bands cross it, and an error of 1.0·10⁻².
 4. Cotangent thin plate: the saddle's pattern is reproduced, with an error of 1.4·10⁻⁴.
 
+To explore it in 3D, run `examples/04_polyscope_fig49.py`. It shows the same four meshes side by side, with switchable quantities: mean curvature (same scale as the PNG), the error to x² − y², the free region, and, for the uniform result, arrows showing how far each vertex slid sideways.
+
 **Pitfalls.**
 - *Uniform weights are not "wrong", they answer another question.* They give the thin plate over the mesh's connectivity. When the connectivity is a faithful picture of the surface (regular sampling), that is the right answer, and here it is even exact. The artifacts come from the *sampling*, not from the surface, so the same shape can look fine or bumpy depending on how it was meshed.
 - *Refinement does not fix modeling errors.* A discretization error shrinks with h; this one does not, because the density *ratio* stays the same.

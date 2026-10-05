@@ -57,6 +57,7 @@ pip install -e ".[viewer]"
 | `python examples/01_polyscope_one_mesh.py` | the UV sphere colored by its height `z` |
 | `python examples/01_polyscope_all_meshes.py` | the four synthetic meshes side by side, with edges |
 | `python examples/04_polyscope_elbow.py` | the two-pipe elbow of Fig. 4.8: start and results for k = 1, 2, 3 (fixed gray, free blue), smoothly shaded |
+| `python examples/04_polyscope_fig49.py` | Fig. 4.9 setting (#12): graded mesh, exact surface, uniform and cotangent thin plates, with curvature, error and sideways-slide quantities |
 
 **3. In the window:** drag with the left mouse button to rotate, drag with the right button to pan, and scroll to zoom. The left panel lists the meshes: use the checkboxes to show or hide them, and open a mesh's entry to change its color, edges, or scalar colormap.
 
