@@ -16,6 +16,6 @@ jobs:
       - name: Install SuiteSparse (needed to build scikit-sparse / CHOLMOD)
         run: sudo apt-get update && sudo apt-get install -y libsuitesparse-dev
       - name: Install
-        run: pip install -e ".[dev]"
+        run: pip install -e ".[dev,mesh]"   # mesh: trimesh, for the load_mesh test
       - name: Run tests
         run: pytest -v

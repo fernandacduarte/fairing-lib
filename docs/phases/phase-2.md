@@ -1,6 +1,6 @@
 # Phase 2 — Discrete Laplace–Beltrami (Ch. 3)
 
-Everything in Chapters 4 and App. A rests on one matrix: a discrete version of the Laplace–Beltrami operator Δ. Applied to the vertex positions it should give the mean curvature normal, Δx = −2H·n (Eq. 3.7). This phase builds two discretizations and tests them against that promise.
+Everything in Chapter 4 and Appendix A rests on one matrix: a discrete version of the Laplace–Beltrami operator Δ. Applied to the vertex positions it should give the mean curvature normal, Δx = −2H·n (Eq. 3.7). This phase builds two discretizations and tests them against that promise.
 
 Both share the form of App. A.1:
 
@@ -61,7 +61,7 @@ Tests (`tests/test_laplacian.py`): M is symmetric with zero row sums, and Σ A�
 `docs/img/06-sphere-H.png`, left: H·R on a sphere of radius R = 2 (exact value 1). Everything is close to 1 except the cap around the pole. Faces average their three vertices, so the pole's value of 0.75 appears diluted to about 0.93. Right: the relative error as the sphere is refined. Away from the poles it falls like h² (parallel to the dashed slope-2 line). At the poles it stays near 0.25 no matter how fine the mesh.
 
 **Pitfalls.**
-- *Barycentric areas break at fan-shaped vertices.* A UV-sphere pole is the apex of n thin triangles. Its barycentric cell is ⅓ of the fan, about πρ²/3, where ρ is the edge length to the first ring. Its Voronoi cell, which is what the derivation of Eq. 3.11 integrates over, is about πρ²/4. The ratio 4/3 makes H = ¾·(1/R), and refining does not help, because the shape of the fan stays the same. The cotangent weights in M are fine; only D is off. This is exactly what the mixed Voronoi area of moonshot M1 (#16) fixes.
+- *Barycentric areas break at fan-shaped vertices.* A UV-sphere pole is the apex of n thin triangles. Its barycentric cell is ⅓ of the fan, about πρ²/3, where ρ is the edge length to the first ring. Its Voronoi cell, which is what the derivation of Eq. 3.11 integrates over, is about πρ²/4. The ratio 4/3 makes H = ¾·(1/R), and refining does not help, because the shape of the fan stays the same. The cotangent weights in M are fine; only D is off. The mixed Voronoi area of moonshot M1 (#16, optional and not implemented) is meant to fix exactly this.
 - *Face colors hide single-vertex outliers.* `plot_mesh` colors a face by the mean of its vertices, so a bad value at one vertex is diluted by its neighbors. For a quantitative claim, plot numbers (as in the convergence plot), not colors.
 - *Cotangent weights can be negative.* cot α + cot β < 0 when α + β > π (§3.3.4). Our test meshes stay far from that, but strongly obtuse triangles (e.g. heavy jitter) would trigger it.
 - *Units differ between the two Laplacians.* The uniform Lx is a length; the cotangent Lx is a curvature (1/length). A shared color scale can therefore only show **zero vs non-zero**, as in `06-uniform-vs-cotan.png`, where the correct answer is 0. When both are non-zero (e.g. on a sphere), their magnitudes are not comparable: scaling the mesh by 10 multiplies the uniform values by 10 and divides the cotangent values by 10.

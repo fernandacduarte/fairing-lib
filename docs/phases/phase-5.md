@@ -97,3 +97,32 @@ What the comparison shows:
 - *Check the mesh before trusting the operators.* Real data can be non-manifold, especially after decimation. Our `boundary_vertices` counts an edge as interior unless exactly one triangle uses it, so a non-manifold edge would silently pass. `edge_face_counts` makes the problem visible, and keeping k + 1 rings away from it makes it irrelevant for the solve.
 - *The start matters for cotangent weights.* With the book's linear method, how the region is initialized decides the result when the weights are cotangent: a crude but clean patch (flattening) works far better than a noisy one. Uniform weights avoid the question, at the price of sampling artifacts on irregular meshes (#12); on this region they gave a smooth result.
 - *File orientation.* The bunny files are y-up; the example rotates them to z-up for matplotlib's 3D axes.
+
+## #15 Final documentation
+
+**Theory → code.** No new equations or code in the library. The README now tells the story of the five phases in the book's order, and each step points to its note:
+- one matrix, L = D·M (App. A.1), uniform (Eq. 3.10) or cotangent (Eq. 3.11), tested against Δx = −2H·n (Eq. 3.7): phase 2;
+- smoothing as a flow, ∂x/∂t = λΔx (Eq. 4.5–4.6), explicit or implicit: phase 3;
+- fairing, Lᵏx = 0 on the free vertices (§4.3), solved as the SPD system of Eq. A.2 with sparse Cholesky (§A.4), with C^(k−1) joints (Fig. 4.8), as the limit of the flow (p. 61), and for hole filling (Fig. 4.7): phases 4 and 5.
+
+The README also has the install steps, a quick start, a table of the library's functions, a table of which script makes which figure, and a gallery of all 21 figures. `tests/test_docs.py` keeps it honest:
+
+| Check | Test |
+|---|---|
+| every figure is written by an example script that the README lists, and shown in the README and in a phase note | `test_every_figure_is_made_by_a_listed_example_and_shown` |
+| relative links and images in the README and the notes point to existing files | `test_relative_links_point_to_existing_files` |
+| the README's quick-start code runs | `test_readme_quick_start_runs` |
+
+**Reproducing the figures.** The six scripts were run from a clean clone of `main`, with the bunny copied from the existing download. All 21 PNGs came out byte-identical to the committed ones, in about 15 seconds. The README lists the library versions used.
+
+**Review of the notes.** Every equation number was checked against the book, and every code citation against the line it points to, including the 20 (of 52) that `test_docs.py` does not check: line ranges (`smoothing.py:58–60`) and citations without a function name (`laplacian.py:37`). All pointed to the intended statements. The fixes were about wording and stale references:
+- *Cholesky notation.* §A.4 writes A = LLᵀ, where L is the triangular factor, not the Laplace matrix. Phase 4 now says so; the code comment uses RᵀR.
+- *What the book says, and what we derived.* The book says only that implicit integration should be used for large time steps (§4.2). "Unconditionally stable for any h" is our derivation in #8, and the notes and README now say so. Likewise, Fig. 4.8's caption says that k sets the *maximum* smoothness C^(k−1), and p. 60–61 states the flow claims for the kth-order flow ∂x/∂t = Δᵏx, which #13 tests for k = 1.
+- *A gap filled.* §A.6 (Table A.1) compares SuperLU, the LU behind SciPy's `factorized`, with a sparse Cholesky solver. Phase 4's "Solver choice" now cites it.
+- *Stale forward references,* written before later issues existed (for example, "the bunny (#14) must be checked"), now point to what was actually done. The moonshot M1 (#16) is described as optional and not implemented.
+
+**What the figures show.** No new figure: the README gallery shows the 21 existing ones, each with one sentence and the issue whose note explains it.
+
+**Pitfalls.**
+- *A citation test only checks what it can parse.* `test_docs.py` checks citations of the form `function`, `file.py:N`, and only that N lies inside the function. A line inside the right function but on the wrong statement passes, and citations without a function name are skipped. A stricter test is planned as a separate PR after this issue.
+- *Write what the book says, not what we proved.* Several sentences sounded like quotes of the book but were our own results. Checking each claim against the book's wording found them.

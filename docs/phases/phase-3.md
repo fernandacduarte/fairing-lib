@@ -88,7 +88,7 @@ Left: the mesh at the two marked steps of that run.
 | smooth (e.g. the sphere itself) | ≈ 0 | ≈ 1 (kept) | ≈ 1 (kept) |
 | noise | very negative | can be < −1 → explodes | ≈ 0 → removed |
 
-So a large h simply removes more of the high-frequency patterns; it never amplifies anything. Implicit Euler is "unconditionally stable".
+So a large h simply removes more of the high-frequency patterns; it never amplifies anything. Implicit Euler is *unconditionally stable*, the usual name for this property. The book only says that implicit integration should be used for large time steps (§4.2); the factor above is why it works.
 
 **Making the system symmetric.** I − hλL = I − hλDM is not symmetric, because D rescales the rows. Multiplying both sides by D⁻¹ (App. A.1, the same idea as Eq. A.2) gives
 
@@ -124,5 +124,5 @@ Tests (`tests/test_smoothing.py`): D⁻¹ − hλM is symmetric and passes a Cho
 - *Implicit smoothing still shrinks.* On the unit sphere, Lx ≈ −2x, so one step scales the sphere by 1/(1 + 2hλ). For h = 0.01 that predicts a radius of 0.980, and we measure 0.981. With h = 0.1 the radius drops to 0.84. Stable does not mean shape-preserving.
 - *One big step is not the same as many small ones.* L is built from the mesh at the start of the step. Ten steps of h = 0.001 smooth a little better (roughness 0.085) than one step of h = 0.01 (0.097), at the same shrinking, because each small step uses an operator rebuilt from a smoother mesh.
 - *Cotangent smoothing leaves tangential noise alone.* After implicit cotan smoothing the roughness levels off near 0.087, not at the clean sphere's 0.073. An exact sphere with only tangential jitter has roughness 0.088: what remains is irregular vertex *spacing*, which the cotangent flow intentionally does not change (that is the right panel above).
-- *SciPy has no sparse Cholesky.* `factorized` uses a general sparse LU (SuperLU). It works on our SPD matrix, but it does not exploit the symmetry; App. A recommends sparse Cholesky for speed. **Decision:** implicit smoothing stays on this LU on purpose. The fairing solver (Phase 4) uses a real sparse Cholesky (CHOLMOD), so the two approaches can be compared; see `phase-4.md`, "Solver choice".
+- *SciPy has no sparse Cholesky.* `factorized` uses a general sparse LU (SuperLU). It works on our SPD matrix, but it does not exploit the symmetry; §A.4 calls Cholesky the most efficient choice for symmetric positive definite systems. **Decision:** implicit smoothing stays on this LU on purpose. The fairing solver (Phase 4) uses a real sparse Cholesky (CHOLMOD), so the two approaches can be compared; see `phase-4.md`, "Solver choice".
 - *Positive definiteness needs −M ⪰ 0.* That holds for the uniform weights and for cotangent weights on reasonable meshes. Strongly obtuse triangles can make cotangent weights negative (§3.3.4), and then the guarantee can fail.
