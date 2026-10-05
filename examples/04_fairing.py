@@ -398,18 +398,15 @@ def figure_fig49():
 
 
 def figure_flow_to_fair():
-    """Issue #13: fairing (k = 1) as the limit of the Laplacian flow (Sec. 4.3, p. 60-61; App. A.3).
+    """Issue #13: fairing (k = 1) as the limit of the Laplacian flow (Sec. 4.3, p. 60-61).
 
-    Top left, claim 3: one implicit step with growing h tends to solve_fair(k = 1).
-    Top right, claims 2 and 4: explicit steps with L fixed are damped Jacobi iterations and
-    converge to the fair surface. Bottom, claim 5 (App. A.3): the iterations remove the
-    high-frequency part of the error quickly; the smooth part decays slowly.
+    Left, claim 3: one implicit step with growing h tends to solve_fair(k = 1).
+    Right, claims 2 and 4: explicit steps with L fixed are damped Jacobi iterations and
+    converge to the fair surface.
     """
     V, F, free, r = disk_problem(81, saddle, interior_noise=0.01)
     colors = {"uniform": "#86b6ef", "cotan": "#0d366b"}
-    fig = plt.figure(figsize=(13, 9.6))
-    grid = fig.add_gridspec(2, 4, height_ratios=[1.15, 1])
-    left, right = fig.add_subplot(grid[0, :2]), fig.add_subplot(grid[0, 2:])
+    fig, (left, right) = plt.subplots(1, 2, figsize=(13, 5.2))
 
     # claim 3: one implicit step, h -> infinity
     hs = 10.0 ** np.arange(-4, 10.5, 0.5)
@@ -425,8 +422,6 @@ def figure_flow_to_fair():
 
     # claims 2 and 4: explicit steps with L fixed = damped Jacobi iterations
     n_iter = 3000
-    snapshots = {}
-    fair_u = solve_fair(V, F, free, 1, "uniform")
     for lap in ("uniform", "cotan"):
         fair = solve_fair(V, F, free, 1, lap)
         h = 0.9 * explicit_step_limit(V, F, laplacian=lap)
@@ -434,36 +429,20 @@ def figure_flow_to_fair():
         # L is built once from V and kept fixed (the tests check this equals the library call)
         L = LAPLACIANS[lap](V, F)[0]
         W, gaps = V.copy(), [np.abs(V - fair).max()]
-        for it in range(1, n_iter + 1):
+        for _ in range(n_iter):
             W[free] += h * (L @ W)[free]
             gaps.append(np.abs(W - fair).max())
-            if lap == "uniform" and it in (10, 100, 1000):
-                snapshots[it] = W.copy()
         right.semilogy(gaps, color=colors[lap], lw=2, label=f"{lap} weights, h = 0.9 h_max")
-    right.set_xlabel("number of explicit steps (L fixed): damped Jacobi iterations")
+    right.set_xlabel("number of explicit steps with L fixed (damped Jacobi iterations)")
     right.set_ylabel("max |x − x_fair|")
-    right.set_title("(b) explicit steps converge to the fair surface, slowly")
+    right.set_title("(b) explicit steps with L fixed → the fair surface")
     for ax in (left, right):
         ax.grid(True, color="#e6e5e1", lw=0.8)
         for side in ("top", "right"):
             ax.spines[side].set_visible(False)
         ax.legend(frameon=False, fontsize=9, loc="lower left")
-
-    # claim 5: the error of the uniform iterations over the free disk
-    keep = free[F].all(axis=1)
-    used, Fc = np.unique(F[keep], return_inverse=True)
-    Fc = Fc.reshape(-1, 3)
-    for col, it in enumerate((0, 10, 100, 1000)):
-        W = V if it == 0 else snapshots[it]
-        err = (W - fair_u)[:, 2]
-        ax = fig.add_subplot(grid[1, col], projection="3d")
-        viz.plot_mesh(fair_u[used] * [1, 1, 0], Fc, err[used], ax, diverging=True, edges=False, colorbar=False,
-                      elev=90, azim=-90, title=f"(c) uniform, after {it} steps\nerror z − z_fair, max {np.abs(err).max():.1e}")
-        ax.set_proj_type("ortho")
-    fig.text(0.5, 0.02, "Bottom row: each panel has its own color scale (blue < 0 < red). The noisy error becomes smooth "
-             "within a few steps; the smooth error then decays slowly (App. A.3).", ha="center", fontsize=9, color="#3d3c39")
-    fig.suptitle("Fairing (k = 1) as the limit of the Laplacian flow: free disk (radius 0.3) on an 81 × 81 grid", y=0.99)
-    fig.tight_layout(rect=(0, 0.03, 1, 0.97))
+    fig.suptitle("Fairing (k = 1) as the limit of the Laplacian flow: free disk (radius 0.3) on an 81 × 81 grid", y=1.0)
+    fig.tight_layout()
     fig.savefig(IMG / "13-flow-to-fair.png", dpi=150, bbox_inches="tight")
     print("saved", IMG / "13-flow-to-fair.png")
 

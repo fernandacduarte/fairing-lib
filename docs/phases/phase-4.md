@@ -297,12 +297,11 @@ To explore it in 3D, run `examples/04_polyscope_fig49.py`. It shows the same fou
 
 ## #13 Fairing as the limit of the flow
 
-**What the book claims.** §4.3 (p. 60–61) connects fairing back to the smoothing flow of §4.2, with four statements; App. A.3 adds a fifth. For k = 1:
+**What the book claims.** §4.3 (p. 60–61) connects fairing back to the smoothing flow of §4.2, with four statements. For k = 1:
 1. Fair surfaces satisfy Δx = 0, so they are **steady states** of the flow ∂x/∂t = λΔx: the update vector vanishes there.
 2. **One explicit time step** of the flow is equivalent to **one (damped) Jacobi iteration** for solving Δx = 0.
 3. **One implicit time step with h = ∞** leads directly to Δx = 0.
 4. As a consequence, Laplacian flows **converge** to fair surfaces.
-5. (App. A.3.1, A.3.3) Jacobi-type iterations remove the high frequencies of the error quickly, but stall once the error is smooth, so their convergence is usually too slow in practice. Such solvers are therefore called *smoothers*.
 
 In 2 and 4 the flow is the matrix form of §4.2, f(t + h) = f(t) + hλLf(t), with L a fixed matrix. All tests and figures below use the same L as `solve_fair`: built once from the input mesh.
 
@@ -335,8 +334,7 @@ Tests (`tests/test_fairing.py`), each named after its claim:
 - *(1)* with uniform weights, an explicit and an implicit step leave the fair surface unchanged (for cotangent weights, L x_fair = 0 on the free vertices is the #9 test);
 - *(2)* one explicit step equals one damped Jacobi iteration, for both Laplacians;
 - *(3)* one implicit step approaches `solve_fair(k=1)` monotonically for h = 10², …, 10⁹, by a factor of 10 ± 5% per decade, ending below 10⁻⁸;
-- *(4)* 3000 explicit steps at 0.9 h_max reach the fair surface to 10⁻¹⁰, for both Laplacians;
-- *(5)* on an 81 × 81 grid, after 30 explicit steps the roughness is already the fair surface's (high frequencies gone), but the distance to it is still more than 2% of the initial one (smooth error left).
+- *(4)* 3000 explicit steps at 0.9 h_max reach the fair surface to 10⁻¹⁰, for both Laplacians.
 
 **What the figures show.**
 
@@ -344,10 +342,8 @@ Tests (`tests/test_fairing.py`), each named after its claim:
 
 `docs/img/13-flow-to-fair.png`: the saddle problem of #10 on an 81 × 81 irregular grid; the free disk (radius 0.3, 1802 vertices) starts with noise σ = 0.01.
 - *(a) Claim 3.* The distance between one implicit step and the fair surface, against hλ. For small h the step barely moves. Then both curves become lines of slope −1 down to round-off (10⁻¹¹–10⁻¹⁵ at hλ = 10¹⁰). The cotangent curve sits further left because its matrix entries are larger (they scale like 1/edge², vs about 1 for uniform), so what counts as a "large" h depends on the operator.
-- *(b) Claims 2 and 4.* Explicit steps with L fixed, i.e. damped Jacobi iterations, at 0.9 h_max. The distance falls quickly at first, then slowly: after 3000 steps it is 3·10⁻⁹ (uniform) and 2·10⁻⁵ (cotangent). The flow does converge to the fair surface, but needs thousands of steps where one implicit step with large h, or one direct solve, gets there at once.
-- *(c) Claim 5.* The error z − z_fair over the free disk, uniform weights, after 0, 10, 100 and 1000 steps (each panel on its own color scale). The initial error is noise. After 10 steps it is already smooth blotches (the high frequencies are gone); after 100 it is a single wave; after 1000 a single smooth bump, still decaying slowly. This is what App. A.3 means by "smoother".
+- *(b) Claims 2 and 4.* Explicit steps with L fixed, i.e. damped Jacobi iterations, at 0.9 h_max. The distance to the fair surface keeps decreasing: after 3000 steps it is 3·10⁻⁹ (uniform) and 2·10⁻⁵ (cotangent).
 
 **Pitfalls.**
 - *The same L.* The flow converges to `solve_fair`'s surface because both use the same matrix. The explicit flow needs `rebuild=False` for this (with cotangent weights a rebuilt L is a different matrix at every step), and the implicit h-sweep uses one step from the input mesh.
-- *The slowdown grows with the mesh.* On a 21 × 21 grid the frozen flow is within 10⁻¹⁰ after about 300 uniform steps (10⁻¹² after about 1000 cotangent steps); on 81 × 81 it is still at 2·10⁻⁵ after 3000 cotangent steps. That is App. A.3's reason to prefer direct solvers (#9 uses Cholesky) for anything beyond small meshes.
 - *"Large h" depends on the operator's scale.* The cotangent L scales like 1/edge², so its implicit steps reach the limit at a much smaller h than the uniform ones; compare h·|μ|, not h.

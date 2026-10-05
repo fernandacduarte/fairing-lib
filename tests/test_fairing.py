@@ -246,17 +246,16 @@ def test_uniform_artifacts_do_not_vanish_with_refinement():
 
 
 # ---------------------------------------------------------------------------
-# Fairing as the limit of the flow (Sec. 4.3, p. 60-61; App. A.3)
+# Fairing as the limit of the flow (Sec. 4.3, p. 60-61)
 # ---------------------------------------------------------------------------
 # The book's claims, k = 1:
 #   (1) fair surfaces are steady states of the flow dx/dt = lam L x;
 #   (2) one explicit step of the flow is one (damped) Jacobi iteration for L x = 0;
 #   (3) one implicit step with h = infinity gives L x = 0 directly;
-#   (4) hence the flow converges to the fair surface;
-#   (5) Jacobi iterations remove high frequencies fast but stall on smooth error (App. A.3).
+#   (4) hence the flow converges to the fair surface.
 # In (2) and (4) the flow uses L as a fixed matrix: explicit_smoothing(..., rebuild=False).
 
-from fairing.smoothing import explicit_smoothing, explicit_step_limit, implicit_smoothing, roughness
+from fairing.smoothing import explicit_smoothing, explicit_step_limit, implicit_smoothing
 
 
 def test_smoothing_keeps_fixed_vertices():
@@ -315,17 +314,6 @@ def test_claim4_the_explicit_flow_converges_to_the_fair_surface(laplacian):
     h = 0.9 * explicit_step_limit(V, F, laplacian=laplacian)
     W = explicit_smoothing(V, F, h, n_iter=3000, laplacian=laplacian, fixed_mask=~free, rebuild=False)
     assert np.abs(W - fair).max() < 1e-10
-
-
-def test_claim5_jacobi_removes_high_frequencies_fast_then_stalls():
-    # App. A.3: after a few iterations the error is smooth (the roughness is already the fair
-    # surface's), but it is far from gone: the smooth error decays slowly.
-    V, F, free, _ = disk_problem(81, saddle, interior_noise=0.01)
-    fair = solve_fair(V, F, free, 1, "uniform")
-    h = 0.9 * explicit_step_limit(V, F)
-    W = explicit_smoothing(V, F, h, n_iter=30, fixed_mask=~free, rebuild=False)
-    assert roughness(W, F) < 1.1 * roughness(fair, F)              # high frequencies: gone
-    assert np.abs(W - fair).max() > 0.02 * np.abs(V - fair).max()  # smooth error: still there
 
 
 def test_unrolled_frozen_flow_matches_explicit_smoothing():
