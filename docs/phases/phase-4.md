@@ -89,7 +89,7 @@ Tests (`tests/test_fairing.py`), for k = 1, 2, 3 and both Laplacians: A_ff is sy
 | a mildly noisy start (σ ≈ 0.3 h) | Dirichlet energy relative to a noisy shape | in between: smooth, mean \|H\| ≈ 0.064 |
 | a heavily noisy start (σ > h) | Dirichlet energy relative to a crumpled shape | corrupted, mean \|H\| ≈ 2 to 47 |
 
-The uniform weights are the same story with a "parametrization" that ignores geometry altogether: the mesh connectivity. **Practical lesson:** the book's linear method needs a reasonable starting shape for the free region. Repeating the solve with weights recomputed from each result would converge to the true minimal surface; that non-linear route is left for #14, by decision.
+The uniform weights are the same story with a "parametrization" that ignores geometry altogether: the mesh connectivity. **Practical lesson:** the book's linear method needs a reasonable starting shape for the free region.
 
 **The test cases.** An irregular grid on [−0.5, 0.5]² whose disk of radius 0.3 is free; the free vertices start at the target height, with or without noise.
 - **A, planar boundary.** z = 0 on all constrained vertices. Then z = 0 is the unique solution of Lz = 0, *whatever the weights*, so the result is exactly flat for both Laplacians.
