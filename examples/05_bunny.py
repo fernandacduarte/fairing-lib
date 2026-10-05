@@ -30,11 +30,11 @@ BUNNY = ROOT / "data" / "bunny" / "reconstruction" / "bun_zipper_res2.ply"
 K, RINGS = 2, 6                                  # thin plate; free region = 6-ring around a seed
 
 
-def load_bunny():
+def load_bunny(path=BUNNY):
     """The bunny as plain V, F, rotated from the file's y-up to z-up (for the 3D plots)."""
-    if not BUNNY.exists():
-        sys.exit(f"{BUNNY} not found: download the Stanford bunny first (see README, 'The Stanford bunny').")
-    V, F = mesh.load_mesh(BUNNY)
+    if not path.exists():
+        sys.exit(f"{path} not found: download the Stanford bunny first (see README, 'The Stanford bunny').")
+    V, F = mesh.load_mesh(path)
     return V[:, [0, 2, 1]] * [1, -1, 1], F
 
 

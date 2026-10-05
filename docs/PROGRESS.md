@@ -6,7 +6,7 @@
 - [x] Phase 3: #7 explicit smoothing (PR #23), #8 implicit smoothing (PR #24)
 - [x] Setup: sparse Cholesky (CHOLMOD via scikit-sparse) for the fairing solver (PR #25)
 - [x] Phase 4: #9 constrained solver (PR #26), #10 membrane (PR #27), #11 thin plate / min. variation (PR #28), #12 uniform vs cotan (PR #29), #13 flow → fair (PR #30) (Phase 4 complete)
-- [x] Phase 5: #14 bunny hole filling (PR #31)
+- [x] Phase 5: #14 bunny hole filling (PR #31), plus a Fig. 4.7-like hole on the full-resolution bunny
 
 ## Next
 - #15 Final documentation: README, gallery, phase notes (Phase 5)
@@ -34,7 +34,7 @@
 - **Uniform weights parametrize by connectivity:** exact on regular meshes (thin plate 10⁻¹⁴), artifacts on graded ones (error 10⁻² that refinement does not reduce, |H| ×6, vertices slide); cotan is density-independent (`graded_grid`, #12).
 - **Two membranes:** uniform ≈ Eq. 4.8 (harmonic in the connectivity/parameter domain; → x² − y² in case B); cotan from a smooth start ≈ Eq. 4.7 (minimal surface, H → 0, 1.3·10⁻³ from x² − y²). Cotan weights frozen from an input damaged at edge scale corrupt the result (|H| ≈ 47).
 - **Book methods only (user decision):** no weight refresh or reference geometry. #14 refills the bunny with cotangent (frozen from the damaged input) and uniform weights, from a noisy and a flattened start. The free vertices' start only enters through the weights: uniform results ignore it, cotan results inherit it (k = 3 elbow: up to 0.36 apart from two starts).
-- **The Stanford bunny** lives in git-ignored `data/` (README has the download; credit Stanford; no commercial use). `bun_zipper_res2` is non-manifold: keep free regions ≥ k + 1 rings from problem edges (`edge_face_counts`).
+- **The Stanford bunny** lives in git-ignored `data/` (README has the download; credit Stanford; no commercial use). `bun_zipper_res2` is non-manifold: keep free regions ≥ k + 1 rings from problem edges (`edge_face_counts`); the Fig. 4.7-sized hole needs the manifold full-resolution `bun_zipper.ply`.
 - scikit-sparse has no wheels: install SuiteSparse first (`brew install suite-sparse` / `apt install libsuitesparse-dev`). On macOS also set `SUITESPARSE_*_DIR` and `CPLUS_INCLUDE_PATH` (README), or clang++ cannot find `<complex>`.
 - **C^(k−1) is tested by refinement:** the meridian's turning angle at the joint stays finite (k = 1), ∝ h (k = 2), ∝ h² (k = 3). One resolution alone cannot tell a small kink from a smooth bend.
 - Colored matplotlib surfaces are unlit, and face colors average out single-vertex outliers: use numbers for quantitative claims. Notes cite `function`, `file.py:N`; `tests/test_docs.py` checks N is inside that function.

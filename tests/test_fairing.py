@@ -379,3 +379,22 @@ def test_bunny_region_is_clear_of_problem_edges():
     seed = int(np.argmax(dist))
     region = k_ring(F, [seed], 6, n=len(V))
     assert dist[region].min() >= 3
+
+
+FULL_BUNNY = BUNNY.with_name("bun_zipper.ply")
+
+
+@pytest.mark.skipif(not FULL_BUNNY.exists(), reason="the Stanford bunny is not downloaded (see README)")
+def test_book_like_hole_is_a_disk_clear_of_the_boundary():
+    # The Fig. 4.7-like hole of examples/05_bunny_book_region.py: on the full-resolution
+    # bunny (manifold), the region is a disk at least k + 1 = 3 rings from boundary edges.
+    pytest.importorskip("trimesh")
+    import runpy
+    book = runpy.run_path(str(BUNNY.parents[3] / "examples" / "05_bunny_book_region.py"), run_name="book")
+    V, F = book["helpers"]["load_bunny"](FULL_BUNNY)
+    _, counts = edge_face_counts(F)
+    assert (counts > 2).sum() == 0
+    free, euler, clearance = book["book_region"](V, F)
+    assert euler == 1 and clearance >= 3
+    assert 2000 < free.sum() < 3500
+
