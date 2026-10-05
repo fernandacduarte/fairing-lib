@@ -14,7 +14,7 @@
 
 ## Decisions
 - **Issue #N = plan step N**; figures are `docs/img/<NN>-<name>.png`; the README's table says which script writes which figure.
-- **Environment:** `.venv`, Python 3.11, `pip install -e ".[dev,mesh,viewer]"`; CI uses 3.11 with `.[dev]`. polyscope only in `examples/*polyscope*.py`, never in tests.
+- **Environment:** `.venv`, Python 3.11, `pip install -e ".[dev,mesh,viewer]"`; CI uses 3.11 with `.[dev,mesh]` (no bunny: its 2 tests skip). polyscope only in `examples/*polyscope*.py`, never in tests.
 - **Data:** plain arrays `V` (n, 3), `F` (m, 3); masks are boolean; topology helpers in `fairing/mesh.py` (rings by BFS, `ring_distance`/`k_ring`). One diagonal per quad: interior valence 6, k-rings of 1 + 3k(k+1) vertices.
 - **Laplacians return `(L, D, M)`** with `L = D @ M`, M symmetric; `laplacian="uniform" | "cotan"`; barycentric areas (M1 would add mixed Voronoi).
 - **Smoothing:** explicit rebuilds L every step by default (`rebuild=False` keeps it fixed, #13); `explicit_step_limit` = 2/(λ|μ_min|) via `eigsh`. Implicit solves the symmetric (D⁻¹ − hλM)x' = D⁻¹x with SciPy's LU (`factorized`), on purpose.

@@ -64,7 +64,7 @@ pytest
 | Extra | Installs | Needed for |
 |---|---|---|
 | `dev` | `pytest` | the tests |
-| `mesh` | `trimesh` | reading the Stanford bunny (Phase 5) |
+| `mesh` | `trimesh` | reading the Stanford bunny (Phase 5) and the `load_mesh` test |
 | `viewer` | `polyscope` | the interactive viewers (optional; never used by the tests) |
 
 ## Quick start
@@ -187,7 +187,7 @@ python examples/05_bunny.py
 python examples/05_bunny_book_region.py
 ```
 
-The tests do not need the download; the two tests that use the bunny are skipped when the files are missing.
+The tests do not need the download: the two tests that use the bunny are skipped when the files are missing. The test of `load_mesh` needs `trimesh` and is skipped without the `mesh` extra.
 
 ## Viewing meshes interactively with polyscope
 
