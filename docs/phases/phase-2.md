@@ -14,11 +14,11 @@ with D = diag(wᵢ) (per-vertex normalization) and M symmetric (mᵢⱼ = wᵢ�
 
 | Book | Formula | Code |
 |---|---|---|
-| Eq. 3.10, §4.1.2 | wᵢⱼ = 1 on every edge | `fairing/laplacian.py:37` |
-| Eq. 3.10 | deg(vᵢ) = \|N₁(vᵢ)\| | `laplacian.py:38` |
-| App. A.1 | M = W − diag(Σⱼ wᵢⱼ) | `laplacian.py:39` |
-| App. A.1 | D = diag(1/deg) | `laplacian.py:40` |
-| App. A.1 | L = D·M | `laplacian.py:41` |
+| Eq. 3.10, §4.1.2 | wᵢⱼ = 1 on every edge | `fairing/laplacian.py:37`<!-- W = adjacency(F, n) --> |
+| Eq. 3.10 | deg(vᵢ) = \|N₁(vᵢ)\| | `laplacian.py:38`<!-- deg = np.asarray(W.sum(axis=1)).ravel() --> |
+| App. A.1 | M = W − diag(Σⱼ wᵢⱼ) | `laplacian.py:39`<!-- M = (W - sp.diags(deg)).tocsr() --> |
+| App. A.1 | D = diag(1/deg) | `laplacian.py:40`<!-- D = sp.diags(1.0 / deg).tocsr() --> |
+| App. A.1 | L = D·M | `laplacian.py:41`<!-- return (D @ M).tocsr(), D, M --> |
 
 Tests (`tests/test_laplacian.py`): M is symmetric with zero row sums, L = D @ M, and (Lx)ᵢ equals the neighbor centroid minus xᵢ. ‖Lx‖ = 0 at the interior of the regular grid, while on the irregular grid it is non-zero at every interior vertex and purely in-plane.
 
@@ -41,12 +41,12 @@ Tests (`tests/test_laplacian.py`): M is symmetric with zero row sums, L = D @ M,
 
 | Book | Formula | Code |
 |---|---|---|
-| Fig. 3.10 | cot of the angle at k, opposite edge (i, j): (u·v)/‖u×v‖ | `fairing/laplacian.py:78` |
-| Eq. 3.11 | wᵢⱼ = cot αᵢⱼ + cot βᵢⱼ (each triangle adds one cotangent) | `laplacian.py:82` |
-| App. A.1 | mᵢᵢ = −Σⱼ wᵢⱼ | `laplacian.py:85` |
+| Fig. 3.10 | cot of the angle at k, opposite edge (i, j): (u·v)/‖u×v‖ | `fairing/laplacian.py:78`<!-- cot = np.einsum("ij,ij->i", u, v) / np.linalg.norm(np.cross(u, v), axis=1) --> |
+| Eq. 3.11 | wᵢⱼ = cot αᵢⱼ + cot βᵢⱼ (each triangle adds one cotangent) | `laplacian.py:82–84`<!-- W = sp.coo_matrix( --> |
+| App. A.1 | mᵢᵢ = −Σⱼ wᵢⱼ | `laplacian.py:85`<!-- M = (W - sp.diags(np.asarray(W.sum(axis=1)).ravel())).tocsr() --> |
 | Fig. 3.7 | barycentric area Aᵢ = ⅓ Σ (incident triangle areas) | `vertex_areas`, `laplacian.py:50` |
-| Eq. 3.11, App. A.1 | D = diag(1/(2Aᵢ)) | `laplacian.py:86` |
-| Eq. 3.7, 3.13 | H = ½‖Lx‖ | `mean_curvature`, `laplacian.py:101` |
+| Eq. 3.11, App. A.1 | D = diag(1/(2Aᵢ)) | `laplacian.py:86`<!-- D = sp.diags(1.0 / (2.0 * vertex_areas(V, F))).tocsr() --> |
+| Eq. 3.7, 3.13 | H = ½‖Lx‖ | `mean_curvature`, `laplacian.py:101`<!-- return 0.5 * np.linalg.norm(L @ np.asarray(V, dtype=float), axis=1) --> |
 
 Tests (`tests/test_laplacian.py`): M is symmetric with zero row sums, and Σ Aᵢ equals the total area. On a grid of right isosceles triangles, axis edges get weight 2 (two 45° angles) and diagonals get 0 (two 90° angles). Linear precision: Lf = 0 at interior vertices for every linear f, so Lx = 0 on the flat irregular grid. On spheres, H → 1/R away from the poles, and Lx points inward (Δx = −2H·n).
 

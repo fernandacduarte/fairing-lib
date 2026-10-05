@@ -38,17 +38,17 @@ Fairing asks for Lᵏx = **0** (§4.3), so **b = 0**, and the term (−1)ᵏD⁻
 
   0 − Σᵢ∈C xᵢ aᵢ = **−A_fc x_c**,
 
-where A_fc collects those columns, restricted to the free rows. That is `fairing.py:71`. The factor (−1)ᵏ is not lost: `fairing_matrix` already multiplies the whole matrix by it, so A_fc carries it, and (−1)ᵏ·0 is still 0.
+where A_fc collects those columns, restricted to the free rows. That is `fairing.py:71`<!-- rhs = -(A_fc @ V[~free]) -->. The factor (−1)ᵏ is not lost: `fairing_matrix` already multiplies the whole matrix by it, so A_fc carries it, and (−1)ᵏ·0 is still 0.
 
-Compare with implicit smoothing (#8), where b ≠ 0. There the system (I − hλL)x' = x has b = x, and the code does compute D⁻¹b (`rhs = D_inv @ V`, `implicit_smoothing`, `smoothing.py:96`). The two steps show the two halves of the formula. `solve_fair` handles only b = 0. A problem with b ≠ 0, such as the deformations mentioned on p. 61, would add (−1)ᵏ D_ff⁻¹ b_f to the right-hand side, using the D entries of the free rows.
+Compare with implicit smoothing (#8), where b ≠ 0. There the system (I − hλL)x' = x has b = x, and the code does compute D⁻¹b (`rhs = D_inv @ V`, `implicit_smoothing`, `smoothing.py:96`<!-- rhs = D_inv @ V -->). The two steps show the two halves of the formula. `solve_fair` handles only b = 0. A problem with b ≠ 0, such as the deformations mentioned on p. 61, would add (−1)ᵏ D_ff⁻¹ b_f to the right-hand side, using the D entries of the free rows.
 
 | Book | Formula | Code |
 |---|---|---|
-| App. A.1, Eq. A.2 | M(DM)ᵏ⁻¹, built by repeated `A @ D @ M` | `fairing_matrix`, `fairing/fairing.py:33` |
-| App. A.1 ("Definiteness") | sign (−1)ᵏ | `fairing.py:34` |
-| App. A.1 ("Definiteness") | A_ff and A_fc: free rows, split columns | `solve_fair`, `fairing.py:69–70` |
-| App. A.1 | right-hand side −A_fc x_c | `fairing.py:71` |
-| §A.4 (sparse Cholesky) | factorize A_ff once, solve x, y, z together | `fairing.py:73` |
+| App. A.1, Eq. A.2 | M(DM)ᵏ⁻¹, built by repeated `A @ D @ M` | `fairing_matrix`, `fairing/fairing.py:33`<!-- A = A @ D @ M --> |
+| App. A.1 ("Definiteness") | sign (−1)ᵏ | `fairing.py:34`<!-- return ((-1) ** k * A).tocsr() --> |
+| App. A.1 ("Definiteness") | A_ff and A_fc: free rows, split columns | `solve_fair`, `fairing.py:69–70`<!-- A_fc = A[free][:, ~free] --> |
+| App. A.1 | right-hand side −A_fc x_c | `fairing.py:71`<!-- rhs = -(A_fc @ V[~free]) --> |
+| §A.4 (sparse Cholesky) | factorize A_ff once, solve x, y, z together | `fairing.py:73`<!-- cho_factor(A_ff.tocsc()).solve(rhs) --> |
 
 L is built once from the input geometry and then frozen; that is what makes the system linear. The starting positions of the free vertices enter only through the cotangent weights, and #10 shows that this matters. The uniform weights do not depend on positions at all. If every vertex is free, the problem has no unique answer (constants solve it), and `solve_fair` raises a `ValueError`.
 
@@ -100,7 +100,7 @@ The uniform weights are the same story with a "parametrization" that ignores geo
 
 | Book | Formula | Code |
 |---|---|---|
-| Eq. 4.8, p. 59 | Lx = 0 on the free vertices, L frozen from the input | `solve_fair(V, F, free, k=1)`, `fairing/fairing.py:68` |
+| Eq. 4.8, p. 59 | Lx = 0 on the free vertices, L frozen from the input | `solve_fair(V, F, free, k=1)`, `fairing/fairing.py:68`<!-- A = fairing_matrix(V, F, k, laplacian) --> |
 | Eq. 3.7 | H = ½‖Lx‖, to tell a minimal surface (H = 0) apart | `mean_curvature` |
 
 Tests (`tests/test_fairing.py`):
@@ -312,8 +312,8 @@ In 2 and 4 the flow is the matrix form of §4.2, f(t + h) = f(t) + hλLf(t), wit
 
 | Book | Formula | Code |
 |---|---|---|
-| §4.2, p. 55 (matrix form) | x_f ← x_f + hλ (Lx)_f, L fixed | `explicit_smoothing(..., fixed_mask, rebuild=False)`, `fairing/smoothing.py:39` |
-| App. A.1 | implicit step with fixed vertices: their columns to the right | `implicit_smoothing`, `fairing/smoothing.py:97` |
+| §4.2, p. 55 (matrix form) | x_f ← x_f + hλ (Lx)_f, L fixed | `explicit_smoothing(..., fixed_mask, rebuild=False)`, `fairing/smoothing.py:39`<!-- V[free] += h * lam * (L @ V)[free] --> |
+| App. A.1 | implicit step with fixed vertices: their columns to the right | `implicit_smoothing`, `fairing/smoothing.py:97`<!-- rhs = rhs[free] - A[free][:, fixed] @ V[fixed] --> |
 | §4.3, p. 61 | the fair surface to compare with | `solve_fair(..., k=1)` |
 
 **Claim 2, worked out.** Write the membrane system as A x = b on the free vertices, with A = −M_ff and b = M_fc x_c (the fixed values moved to the right, #9). The Jacobi iteration of App. A.3.1 updates each free vertex as x_i^J = (b_i − Σ_{j≠i} a_ij x_j) / a_ii. One explicit step does x_i + hλ D_ii (Mx)_i, which can be rewritten as
