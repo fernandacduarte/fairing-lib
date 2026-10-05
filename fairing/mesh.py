@@ -231,6 +231,23 @@ def load_obj(path):
     return np.array(V, dtype=float).reshape(-1, 3), np.array(F, dtype=int).reshape(-1, 3)
 
 
+def load_mesh(path):
+    """Read a triangle mesh in any format trimesh understands (e.g. PLY), as plain ``V, F``.
+
+    The file is read as is (``process=False``: no merging or repairing), and
+    vertices that no triangle uses are dropped, with ``F`` re-indexed. Needs the
+    optional dependency: ``pip install -e ".[mesh]"``.
+    """
+    try:
+        import trimesh
+    except ImportError as err:
+        raise ImportError('trimesh is not installed; run: pip install -e ".[mesh]"') from err
+    m = trimesh.load(path, process=False, force="mesh")
+    V, F = np.asarray(m.vertices, dtype=float), np.asarray(m.faces, dtype=int)
+    used, F = np.unique(F, return_inverse=True)
+    return V[used], F.reshape(-1, 3)
+
+
 # ---------------------------------------------------------------------------
 # Topology helpers
 # ---------------------------------------------------------------------------
@@ -270,13 +287,24 @@ def one_rings(F, n=None):
     return [A.indices[A.indptr[i]:A.indptr[i + 1]] for i in range(A.shape[0])]
 
 
+def edge_face_counts(F):
+    """Unique edges ``(E, 2)`` and, for each, the number of triangles that contain it.
+
+    On a manifold mesh every interior edge is in exactly 2 triangles and every
+    boundary edge in 1. A count above 2 marks a *non-manifold* edge, where the
+    discrete operators of Ch. 3 (one-rings, cotangent weights) are not defined
+    as in the book.
+    """
+    return np.unique(np.sort(_half_edges(F), axis=1), axis=0, return_counts=True)
+
+
 def boundary_vertices(F):
     """Sorted indices of the vertices on the mesh boundary.
 
     An interior edge is shared by two triangles; a boundary edge belongs to
     exactly one. The boundary vertices are the endpoints of boundary edges.
     """
-    E, counts = np.unique(np.sort(_half_edges(F), axis=1), axis=0, return_counts=True)
+    E, counts = edge_face_counts(F)
     return np.unique(E[counts == 1])
 
 
@@ -313,3 +341,19 @@ def add_noise(V, sigma, seed=0):
     """Add isotropic Gaussian noise (standard deviation ``sigma`` per coordinate) to every vertex."""
     rng = np.random.default_rng(seed)
     return np.asarray(V, dtype=float) + rng.normal(0.0, sigma, np.shape(V))
+
+
+def flatten_onto_border_plane(V, F, free_mask):
+    """Project the free vertices onto the plane that best fits the region's border.
+
+    The border is the first ring of fixed vertices around the free region; the
+    plane is its least-squares fit (through their centroid, normal = direction
+    of least spread). Used as a crude "patch" to be refilled by fairing (#14).
+    """
+    V = np.asarray(V, dtype=float).copy()
+    free = np.asarray(free_mask, dtype=bool)
+    border = ring_distance(F, np.flatnonzero(free), max_k=1, n=len(V)) == 1
+    center = V[border].mean(axis=0)
+    normal = np.linalg.svd(V[border] - center)[2][-1]
+    V[free] -= np.outer((V[free] - center) @ normal, normal)
+    return V

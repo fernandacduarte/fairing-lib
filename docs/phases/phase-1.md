@@ -69,10 +69,10 @@ To inspect a mesh interactively, run `examples/01_polyscope_one_mesh.py` (one me
 
 | Concept | Book | Code |
 |---|---|---|
-| edges (each counted once) | — | `edges`, `fairing/mesh.py:244` |
-| one-ring N₁(vᵢ), valence deg(vᵢ) | §3.3.1, Eq. 3.10 | `adjacency`, `mesh.py:249`; `one_rings`, `mesh.py:263` |
-| boundary: edges with one triangle | — | `boundary_vertices`, `mesh.py:273` |
-| n-ring neighborhood Nₖ, grown from a set | §3.3.1; §4.3 p. 60 | `ring_distance` (BFS), `mesh.py:283`; `k_ring`, `mesh.py:302` |
+| edges (each counted once) | — | `edges`, `fairing/mesh.py:261` |
+| one-ring N₁(vᵢ), valence deg(vᵢ) | §3.3.1, Eq. 3.10 | `adjacency`, `mesh.py:266`; `one_rings`, `mesh.py:280` |
+| boundary: edges with one triangle | — | `boundary_vertices`, `mesh.py:301` |
+| n-ring neighborhood Nₖ, grown from a set | §3.3.1; §4.3 p. 60 | `ring_distance` (BFS), `mesh.py:311`; `k_ring`, `mesh.py:330` |
 
 Checks in `tests/test_topology.py`: grid boundary 2(nx + ny) − 4, sphere 0, tube 2·n_theta. Interior valence 6, and k-ring sizes 1 + 3k(k+1), i.e. 7, 19, 37. The Euler characteristic V − E + F is 1 (disk), 2 (sphere), 0 (open cylinder). Distance from the grid boundary is min(i, j, nx−1−i, ny−1−j).
 

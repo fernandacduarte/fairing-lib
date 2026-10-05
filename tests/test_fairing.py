@@ -1,4 +1,6 @@
-"""Tests for constrained fairing (issues #9-#13)."""
+"""Tests for constrained fairing (issues #9-#14)."""
+
+import pathlib
 
 import numpy as np
 import pytest
@@ -325,3 +327,55 @@ def test_unrolled_frozen_flow_matches_explicit_smoothing():
     for _ in range(5):
         W[free] += h * (L @ W)[free]
     assert np.allclose(W, explicit_smoothing(V, F, h, n_iter=5, laplacian="cotan", fixed_mask=~free, rebuild=False))
+
+
+# ---------------------------------------------------------------------------
+# Hole filling with a thin plate (Sec. 4.3, Fig. 4.7; issue #14)
+# ---------------------------------------------------------------------------
+# A sphere stands in for the bunny, so the tests do not need the download.
+
+from fairing.mesh import edge_face_counts, flatten_onto_border_plane, irregular_sphere
+
+
+def damaged_sphere_region():
+    V, F = irregular_sphere(24, 48, jitter=0.15, seed=0)
+    free = np.zeros(len(V), dtype=bool)
+    free[k_ring(F, [1 + 48 * 11], 4)] = True                        # a 4-ring region near the equator
+    E, _ = edge_face_counts(F)
+    h = np.linalg.norm(V[E[:, 0]] - V[E[:, 1]], axis=1).mean()
+    noisy = np.where(free[:, None], add_noise(V, 0.5 * h, seed=1), V)
+    return V, F, free, noisy, flatten_onto_border_plane(V, F, free)
+
+
+def test_uniform_refill_does_not_depend_on_the_damage():
+    # The free vertices' start enters only through the weights; uniform weights ignore it.
+    V, F, free, noisy, flat = damaged_sphere_region()
+    assert np.allclose(solve_fair(noisy, F, free, 2, "uniform"), solve_fair(flat, F, free, 2, "uniform"), atol=1e-12)
+
+
+def test_cotan_refill_depends_on_the_damage():
+    # Cotangent weights are frozen from the damaged geometry, so different damages give
+    # different refills; the noisy start is the worse one (#10).
+    V, F, free, noisy, flat = damaged_sphere_region()
+    from_noise, from_flat = solve_fair(noisy, F, free, 2, "cotan"), solve_fair(flat, F, free, 2, "cotan")
+    assert np.abs(from_noise - from_flat).max() > 0.05
+    radius_error = lambda W: np.abs(np.linalg.norm(W[free], axis=1) - 1).max()
+    assert radius_error(from_flat) < radius_error(from_noise)
+
+
+BUNNY = pathlib.Path(__file__).resolve().parents[1] / "data" / "bunny" / "reconstruction" / "bun_zipper_res2.ply"
+
+
+@pytest.mark.skipif(not BUNNY.exists(), reason="the Stanford bunny is not downloaded (see README)")
+def test_bunny_region_is_clear_of_problem_edges():
+    # Run only where the bunny was downloaded. The decimated bunny has non-manifold and
+    # boundary edges; the chosen region must stay at least k + 1 = 3 rings away from them.
+    pytest.importorskip("trimesh")
+    from fairing.mesh import load_mesh, ring_distance
+    V, F = load_mesh(BUNNY)
+    E, counts = edge_face_counts(F)
+    problem = np.unique(E[counts != 2])
+    dist = ring_distance(F, problem, n=len(V))
+    seed = int(np.argmax(dist))
+    region = k_ring(F, [seed], 6, n=len(V))
+    assert dist[region].min() >= 3

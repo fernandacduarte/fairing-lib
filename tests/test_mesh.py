@@ -129,3 +129,35 @@ def test_graded_grid():
     assert spacing.max() / spacing.min() > 4                        # density ratio (1 + s) / (1 - s) ~ 5.7
     with pytest.raises(ValueError):
         graded_grid(5, 5, strength=1.0)
+
+
+def test_edge_face_counts():
+    from fairing.mesh import edge_face_counts
+    V, F = grid(4, 3)
+    E, counts = edge_face_counts(F)
+    assert set(counts) == {1, 2}
+    assert (counts == 1).sum() == 2 * (4 - 1) + 2 * (3 - 1)       # the boundary edges
+    # three triangles sharing the edge (0, 1): a non-manifold "fin"
+    E, counts = edge_face_counts(np.array([[0, 1, 2], [1, 0, 3], [0, 1, 4]]))
+    assert counts[(E == [0, 1]).all(axis=1)][0] == 3
+
+
+def test_load_mesh_drops_unused_vertices(tmp_path):
+    pytest.importorskip("trimesh")
+    from fairing.mesh import load_mesh
+    V, F = grid(3, 3)
+    V_extra = np.vstack([V, [[9.0, 9.0, 9.0]]])                     # one vertex no triangle uses
+    save_obj(tmp_path / "m.obj", V_extra, F)
+    V2, F2 = load_mesh(tmp_path / "m.obj")
+    assert len(V2) == len(V) and np.allclose(V2[F2], V[F])
+
+
+def test_flatten_onto_border_plane():
+    from fairing.mesh import flatten_onto_border_plane, k_ring
+    V, F = uv_sphere(12, 24)
+    free = np.zeros(len(V), dtype=bool)
+    free[k_ring(F, [1 + 24 * 5], 2)] = True
+    W = flatten_onto_border_plane(V, F, free)
+    assert np.array_equal(W[~free], V[~free])
+    P = W[free] - W[free].mean(axis=0)
+    assert np.linalg.svd(P, compute_uv=False)[-1] < 1e-12            # the free vertices are coplanar
