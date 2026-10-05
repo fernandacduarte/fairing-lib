@@ -45,7 +45,7 @@ A step of hλ = 1 with the uniform Laplacian moves every vertex exactly onto its
 |---|---|---|
 | §4.2, Eq. 4.6 | x ← x + hλ·Lx, L rebuilt from the current x | `explicit_smoothing`, `fairing/smoothing.py:29` |
 | §4.2 ("sufficiently small h") | h_max = 2/(λ\|μ_min\|), μ_min from the symmetric D^½MD^½ | `explicit_step_limit`, `smoothing.py:48–50` |
-| — | noise measure: mean angle between adjacent face normals | `roughness`, `smoothing.py:81` |
+| — | noise measure: mean angle between adjacent face normals | `roughness`, `smoothing.py:93` |
 
 Tests (`tests/test_smoothing.py`): h_max matches a dense eigenvalue computation; at hλ = 1 the uniform step lands on the centroid; smoothing removes most of the noise's excess roughness with either Laplacian; 0.95 × h_max stays bounded for 300 steps, while 1.05 × h_max grows past 10³.
 
@@ -98,10 +98,10 @@ M is symmetric and D⁻¹ is diagonal, so the matrix is symmetric. It is also po
 
 | Book | Formula | Code |
 |---|---|---|
-| App. A.1 | D⁻¹ = diag(1/wᵢ) | `fairing/smoothing.py:74` |
-| §4.2, App. A.1 | factorize D⁻¹ − hλM once per step | `smoothing.py:75` |
-| App. A.1 | right-hand side D⁻¹x | `smoothing.py:76` |
-| §4.2 | solve for x', y', z' with the same factorization | `smoothing.py:77` |
+| App. A.1 | D⁻¹ = diag(1/wᵢ) | `implicit_smoothing`, `fairing/smoothing.py:84` |
+| §4.2, App. A.1 | build D⁻¹ − hλM, factorize it once per step | `implicit_smoothing`, `smoothing.py:85`, `:88` |
+| App. A.1 | right-hand side D⁻¹x | `implicit_smoothing`, `smoothing.py:86` |
+| §4.2 | solve for x', y', z' with the same factorization | `implicit_smoothing`, `smoothing.py:89` |
 | Fig. 4.6 setting | exact sphere, vertices moved *along* it | `irregular_sphere`, `fairing/mesh.py:119` |
 
 Tests (`tests/test_smoothing.py`): D⁻¹ − hλM is symmetric and passes a Cholesky factorization. The symmetric solve also satisfies the original (I − hλL)x' = x. For tiny h, implicit and explicit agree, as two first-order methods should. Far above h_max (10× for uniform, 300× for cotan) one implicit step stays bounded and removes most of the noise. On an irregular sphere, the cotangent flow changes triangle angles by < 0.5° and the uniform flow by > 5°.

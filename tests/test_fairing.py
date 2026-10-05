@@ -243,3 +243,29 @@ def test_uniform_artifacts_do_not_vanish_with_refinement():
     # "parameter domain" in the same way at every resolution.
     coarse, fine = thin_plate_error(41, 0.7, "uniform")[0], thin_plate_error(81, 0.7, "uniform")[0]
     assert fine > 0.5 * coarse
+
+
+# ---------------------------------------------------------------------------
+# Fairing as the limit of the implicit flow (Sec. 4.3, p. 61)
+# ---------------------------------------------------------------------------
+
+def test_implicit_smoothing_keeps_fixed_vertices():
+    from fairing.smoothing import implicit_smoothing
+    V, F, free, _ = disk_problem(21, saddle, interior_noise=0.02)
+    W = implicit_smoothing(V, F, 0.01, laplacian="cotan", fixed_mask=~free)
+    assert np.array_equal(W[~free], V[~free])
+    assert not np.allclose(W[free], V[free])
+
+
+@pytest.mark.parametrize("laplacian", ["uniform", "cotan"])
+def test_one_implicit_step_tends_to_the_membrane_like_one_over_h(laplacian):
+    # (D^-1 - h M)_ff x'_f = D^-1_ff x_f + h M_fc x_c; dividing by h, the D^-1 x_f / h term
+    # vanishes as h -> infinity, leaving the membrane system M_ff x_f + M_fc x_c = 0.
+    from fairing.smoothing import implicit_smoothing
+    V, F, free, _ = disk_problem(21, saddle, interior_noise=0.02)
+    fair = solve_fair(V, F, free, 1, laplacian)                    # same L: built from V
+    hs = 10.0 ** np.arange(2, 10)
+    gaps = [np.abs(implicit_smoothing(V, F, h, laplacian=laplacian, fixed_mask=~free) - fair).max() for h in hs]
+    assert all(a > b for a, b in zip(gaps, gaps[1:]))              # shrinks as h grows
+    assert np.isclose(gaps[-2] / gaps[-1], 10, rtol=0.05)         # like 1/h for large h
+    assert gaps[-1] < 1e-8 * np.abs(V).max()

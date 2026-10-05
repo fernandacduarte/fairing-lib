@@ -6,8 +6,8 @@ Run from the repository root:
 
 Saves docs/img/09-sparsity.png, docs/img/10-membrane.png,
 docs/img/10-two-membranes.png, docs/img/11-tube-k123.png, docs/img/11-profile.png, docs/img/11-elbow-k123.png,
-docs/img/11-elbow-profiles.png, docs/img/11-elbow-weights.png and
-docs/img/12-uniform-vs-cotan-fairing.png.
+docs/img/11-elbow-profiles.png, docs/img/11-elbow-weights.png,
+docs/img/12-uniform-vs-cotan-fairing.png and docs/img/13-flow-to-fair.png.
 """
 
 from pathlib import Path
@@ -22,6 +22,7 @@ from matplotlib.ticker import NullFormatter
 from fairing import mesh, viz
 from fairing.fairing import fairing_matrix, solve_fair
 from fairing.laplacian import mean_curvature
+from fairing.smoothing import implicit_smoothing
 from sksparse.cholmod import cho_factor
 
 IMG = Path(__file__).resolve().parents[1] / "docs" / "img"
@@ -396,6 +397,56 @@ def figure_fig49():
     print("saved", IMG / "12-uniform-vs-cotan-fairing.png")
 
 
+def figure_flow_to_fair():
+    """Issue #13: fairing as the limit of the implicit flow (p. 61).
+
+    Left: one implicit step with fixed vertices, for growing h, against solve_fair(k = 1)
+    with the same L. Right: many small steps, with L rebuilt at every step.
+    """
+    V, F, free, r = disk_problem(21, saddle, interior_noise=0.02)
+    inner = r < 0.25
+    colors = {"uniform": "#86b6ef", "cotan": "#0d366b"}
+    fig, (left, right) = plt.subplots(1, 2, figsize=(12, 4.8))
+
+    hs = 10.0 ** np.arange(-4, 10.5, 0.5)
+    for lap in ("uniform", "cotan"):
+        fair = solve_fair(V, F, free, 1, lap)
+        gaps = [np.abs(implicit_smoothing(V, F, h, laplacian=lap, fixed_mask=~free) - fair).max() for h in hs]
+        left.loglog(hs, gaps, "o-", color=colors[lap], lw=2, ms=4, label=f"{lap} weights")
+        left.loglog(hs[-6:], gaps[-1] * hs[-1] / hs[-6:], "--", color="#8a8984", lw=1.2,
+                    label="slope −1 (∝ 1/h)" if lap == "cotan" else None)
+    left.set_xlabel("step size hλ (one implicit step)")
+    left.set_ylabel("max |x_flow − x_fair|")
+    left.set_title("one implicit step → the membrane, like 1/h")
+
+    steps = np.arange(1, 401)
+    for lap, h in (("uniform", 1.0), ("cotan", 1e-3)):
+        fair = solve_fair(V, F, free, 1, lap)
+        W, gaps = V.copy(), []
+        for _ in steps:
+            W = implicit_smoothing(W, F, h, laplacian=lap, fixed_mask=~free)
+            gaps.append(np.abs(W - fair).max())
+        H_end = mean_curvature(W, F)[inner].mean()
+        right.semilogy(steps, gaps, color=colors[lap], lw=2,
+                       label=f"{lap}, h = {h:g} (mean |H| at the end: {H_end:.3f})")
+    H_fair = mean_curvature(solve_fair(V, F, free, 1, "cotan"), F)[inner].mean()
+    right.annotate(f"cotan with L rebuilt each step heads to the minimal surface (H → 0);\n"
+                   f"the one-shot membrane, L frozen from the noisy start, has mean |H| = {H_fair:.3f}",
+                   (105, 6e-4), fontsize=8.5, color="#3d3c39")
+    right.set_xlabel("number of implicit steps (L rebuilt at every step)")
+    right.set_ylabel("max |x_flow − x_fair|")
+    right.set_title("many small steps")
+    for ax in (left, right):
+        ax.grid(True, color="#e6e5e1", lw=0.8)
+        for side in ("top", "right"):
+            ax.spines[side].set_visible(False)
+        ax.legend(frameon=False, fontsize=8.5, loc="lower left")
+    fig.suptitle("Fairing (k = 1) as the limit of the implicit Laplacian flow; free disk with fixed boundary", y=1.0)
+    fig.tight_layout()
+    fig.savefig(IMG / "13-flow-to-fair.png", dpi=150, bbox_inches="tight")
+    print("saved", IMG / "13-flow-to-fair.png")
+
+
 if __name__ == "__main__":
     IMG.mkdir(parents=True, exist_ok=True)
     figure_sparsity()
@@ -407,3 +458,4 @@ if __name__ == "__main__":
     figure_elbow_profiles()
     figure_elbow_weights()
     figure_fig49()
+    figure_flow_to_fair()
