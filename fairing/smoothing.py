@@ -12,21 +12,31 @@ import scipy.sparse.linalg as spla
 from .laplacian import LAPLACIANS
 
 
-def explicit_smoothing(V, F, h, lam=1.0, n_iter=1, laplacian="uniform"):
+def explicit_smoothing(V, F, h, lam=1.0, n_iter=1, laplacian="uniform", fixed_mask=None, rebuild=True):
     """Explicit Euler Laplacian smoothing, Sec. 4.2: ``x <- x + h λ L x``.
 
-    ``L`` is rebuilt from the current positions at every iteration, so each
-    step uses the Laplace-Beltrami operator of the current surface (for the
-    cotangent Laplacian this is the discrete mean curvature flow). With the
+    By default ``L`` is rebuilt from the current positions at every iteration,
+    so each step uses the Laplace-Beltrami operator of the current surface (for
+    the cotangent Laplacian this is the discrete mean curvature flow). With the
     uniform Laplacian ``L`` depends only on ``F``, so rebuilding changes nothing.
+
+    With ``rebuild=False``, ``L`` is computed once from the input ``V`` and kept
+    fixed: the matrix form ``f(t + h) = f(t) + h λ L f(t)`` of Sec. 4.2. In that
+    form, one step with ``fixed_mask`` is one damped Jacobi iteration for
+    ``L x = 0`` on the free vertices (Sec. 4.3, p. 61; Jacobi: App. A.3.1).
+
+    ``fixed_mask`` (optional, boolean) marks vertices that keep their positions.
 
     The step is stable only for ``h <= h_max = explicit_step_limit(...)``; see there.
     """
     V = np.asarray(V, dtype=float).copy()
     build = LAPLACIANS[laplacian]
+    free = np.ones(len(V), dtype=bool) if fixed_mask is None else ~np.asarray(fixed_mask, dtype=bool)
+    L = build(V, F)[0]
     for _ in range(n_iter):
-        L = build(V, F)[0]
-        V += h * lam * (L @ V)
+        if rebuild:
+            L = build(V, F)[0]
+        V[free] += h * lam * (L @ V)[free]
     return V
 
 
