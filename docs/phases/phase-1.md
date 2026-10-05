@@ -49,7 +49,7 @@ This phase builds the tools that every later experiment relies on: a package, sy
 | `plot_mesh`, `viz.py:36` | one mesh with `plot_trisurf`; per-vertex scalars become face colors (mean of the 3 vertices) |
 | `compare`, `viz.py:82` | panels side by side, one shared color scale and colorbar, optional camera per panel |
 | `show_polyscope`, `viz.py:119` | interactive viewer; polyscope is imported only inside this function |
-| `SEQUENTIAL`, `DIVERGING`, `viz.py:14` | blue ramp for magnitudes; blue–gray–red for signed values, with gray at 0 |
+| `SEQUENTIAL`, `DIVERGING`, `viz.py:14`<!-- SEQUENTIAL = LinearSegmentedColormap --> | blue ramp for magnitudes; blue–gray–red for signed values, with gray at 0 |
 
 To inspect a mesh interactively, run `examples/01_polyscope_one_mesh.py` (one mesh colored by a scalar) or `examples/01_polyscope_all_meshes.py` (all four meshes side by side). The README explains how to install and use the viewer.
 

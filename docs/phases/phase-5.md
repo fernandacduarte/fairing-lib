@@ -115,7 +115,7 @@ The README also has the install steps, a quick start, a table of the library's f
 
 **Reproducing the figures.** The six scripts were run from a clean clone of `main`, with the bunny copied from the existing download. All 21 PNGs came out byte-identical to the committed ones, in about 15 seconds. The README lists the library versions used.
 
-**Review of the notes.** Every equation number was checked against the book, and every code citation against the line it points to, including the 20 (of 52) that `test_docs.py` does not check: line ranges (`smoothing.py:58–60`) and citations without a function name (`laplacian.py:37`). All pointed to the intended statements. The fixes were about wording and stale references:
+**Review of the notes.** Every equation number was checked against the book, and every code citation against the line it points to, including the 20 (of 52) that `test_docs.py` does not check: line ranges (`smoothing.py:58–60`<!-- spla.eigsh( -->) and citations without a function name (`laplacian.py:37`<!-- W = adjacency(F, n) -->). All pointed to the intended statements. The fixes were about wording and stale references:
 - *Cholesky notation.* §A.4 writes A = LLᵀ, where L is the triangular factor, not the Laplace matrix. Phase 4 now says so; the code comment uses RᵀR.
 - *What the book says, and what we derived.* The book says only that implicit integration should be used for large time steps (§4.2). "Unconditionally stable for any h" is our derivation in #8, and the notes and README now say so. Likewise, Fig. 4.8's caption says that k sets the *maximum* smoothness C^(k−1), and p. 60–61 states the flow claims for the kth-order flow ∂x/∂t = Δᵏx, which #13 tests for k = 1.
 - *A gap filled.* §A.6 (Table A.1) compares SuperLU, the LU behind SciPy's `factorized`, with a sparse Cholesky solver. Phase 4's "Solver choice" now cites it.
@@ -124,5 +124,30 @@ The README also has the install steps, a quick start, a table of the library's f
 **What the figures show.** No new figure: the README gallery shows the 21 existing ones, each with one sentence and the issue whose note explains it.
 
 **Pitfalls.**
-- *A citation test only checks what it can parse.* `test_docs.py` checks citations of the form `function`, `file.py:N`, and only that N lies inside the function. A line inside the right function but on the wrong statement passes, and citations without a function name are skipped. A stricter test is planned as a separate PR after this issue.
+- *A citation test only checks what it can parse.* `test_docs.py` checks citations of the form `function`, `file.py:N`, and only that N lies inside the function. A line inside the right function but on the wrong statement passes, and citations without a function name are skipped. #33 (below) closes this gap.
 - *Write what the book says, not what we proved.* Several sentences sounded like quotes of the book but were our own results. Checking each claim against the book's wording found them.
+
+## #33 Stricter citation test (follow-up to #15)
+
+**Theory → code.** No book equation. The "Theory → code" tables are only useful if each line number points at the statement that implements the equation. The old test checked a proxy, "line N lies inside the cited function", which stays true when lines shift *within* the function. That is the most common way line numbers go stale. The new test checks the property itself. Each citation names its statement in a hidden HTML comment right after it, which GitHub does not render:
+
+  `` `fairing/fairing.py:33`<!-- A = A @ D @ M --> ``
+
+| Rule | Test |
+|---|---|
+| the named statement is on the cited line, or in the cited range `N–M`; otherwise the message gives the line it is on now | `test_cited_lines_contain_their_statement` |
+| a citation without a statement fails, unless it cites a function's own `def` line right after the function's backticked name | `test_cited_lines_contain_their_statement` |
+| the short form `:N` refers to the file cited just before it on the same line | `line_citations`, `tests/test_docs.py` |
+| the notes contain at least 40 line citations, so a broken pattern cannot silently check nothing | `test_notes_contain_line_citations` |
+
+All 54 citations that the notes had before this issue are now checked: 23 cite a `def` line, and 31 name their statement, including the 20 that the old test skipped. The two examples in this section are checked too. The old check, that a cited line lies inside its function, stays as a second test.
+
+**When the test fails.** If code moves, the message says, for example, `` `rhs = -(A_fc @ V[~free])` is not there; it is now on line 72 ``. Update the line number in the note; the statement stays the same. To check the test, we inserted one line at the start of `solve_fair`'s body. The new test flagged all five citations below it with their new lines, while the old function-span test still passed.
+
+**What the figures show.** No figure.
+
+**Pitfalls.**
+- *A comment line is not a statement.* The phase-2 citation of line 82 of `laplacian.py` pointed at the comment "duplicate (i, j) entries are summed". The summing happens in the next statement, the conversion from COO to CSR. The citation now covers lines 82–84 and names `sp.coo_matrix(`.
+- *A range pins only one statement.* `smoothing.py:58–60`<!-- spla.eigsh( --> names the `eigsh` call in phase 3's text and the `return` line in its table. If lines are inserted inside the range, the named statement may still be within it, so keep ranges short.
+- *Even examples are checked.* While this section was being written, the test flagged two citations in it that named no statement. A line number that is only mentioned, not cited, is written without backticks.
+- *The comment must survive Markdown.* A statement containing `|` would split a table cell, and `-->` would end the comment early. None of ours does; pick another part of the line if one ever does.
