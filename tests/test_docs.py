@@ -1,19 +1,30 @@
-"""The study notes cite code as `function`, `file.py:N`. Check that line N lies inside that function.
+"""Checks that the documentation stays in sync with the code (issues #13 and #15).
 
-Line numbers go stale whenever code is inserted above them; this test catches it.
-Names that are not functions of that file (constants such as DIVERGING) are skipped.
+- The study notes cite code as `function`, `file.py:N`. Line N must lie inside that function:
+  line numbers go stale whenever code is inserted above them. Names that are not functions
+  of that file (constants such as DIVERGING) are skipped.
+- Every figure in docs/img/ must be written by an example script that the README lists, and
+  shown in the README gallery and in a phase note.
+- Relative links and images in the README and the notes must point to existing files.
+- The README's quick-start code must run.
 """
 
 import pathlib
 import re
 
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+README = (ROOT / "README.md").read_text()
+NOTES = sorted((ROOT / "docs" / "phases").glob("*.md"))
 # a backticked name, then (within the same table cell / phrase) a backticked file:line
 CITATION = re.compile(r"`(\w+)`(?:[^`|;]{0,25})`(?:fairing/)?(\w+\.py):(\d+)`")
 
 
 def citations():
-    for note in sorted((ROOT / "docs" / "phases").glob("*.md")):
+    for note in NOTES:
         for match in CITATION.finditer(note.read_text()):
             yield note.name, *match.groups()
 
@@ -39,3 +50,45 @@ def test_function_citations_point_inside_the_function():
         if span is not None and not span[0] <= int(line) <= span[1]:
             stale.append(f"{note}: `{name}` cited at {filename}:{line}, but it spans lines {span[0]}-{span[1]}")
     assert not stale, "stale line references:\n" + "\n".join(stale)
+
+
+def test_every_figure_is_made_by_a_listed_example_and_shown():
+    scripts = [p for p in sorted((ROOT / "examples").glob("*.py")) if "polyscope" not in p.name]
+    notes = "\n".join(note.read_text() for note in NOTES)
+    figures = sorted((ROOT / "docs" / "img").glob("*.png"))
+    assert figures
+    problems = []
+    for png in figures:
+        makers = [p for p in scripts if f'"{png.name}"' in p.read_text()]
+        if not makers:
+            problems.append(f"{png.name}: no example script writes it")
+        problems += [f"{png.name}: {p.name} is not in the README" for p in makers
+                     if f"examples/{p.name}" not in README]
+        if f"docs/img/{png.name}" not in README:
+            problems.append(f"{png.name}: not in the README gallery")
+        if f"../img/{png.name}" not in notes:
+            problems.append(f"{png.name}: not shown in any phase note")
+    assert not problems, "\n".join(problems)
+
+
+LINK = re.compile(r"\]\(([^)\s]+)\)|src=\"([^\"]+)\"")
+
+
+def test_relative_links_point_to_existing_files():
+    documents = [ROOT / "README.md", ROOT / "docs" / "PROGRESS.md", *NOTES]
+    broken = []
+    for doc in documents:
+        for match in LINK.finditer(doc.read_text()):
+            target = (match.group(1) or match.group(2)).split("#")[0]
+            if target and not target.startswith(("http://", "https://")) and not (doc.parent / target).exists():
+                broken.append(f"{doc.relative_to(ROOT)}: {target}")
+    assert not broken, "broken links:\n" + "\n".join(broken)
+
+
+def test_readme_quick_start_runs(monkeypatch):
+    section = README.split("## Quick start", 1)[1]
+    code = re.search(r"```python\n(.*?)```", section, re.S).group(1)
+    monkeypatch.setattr(plt, "show", lambda: None)
+    exec(compile(code, "README.md (Quick start)", "exec"), {})
+    assert plt.get_fignums()
+    plt.close("all")

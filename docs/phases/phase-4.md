@@ -6,10 +6,13 @@ Fairing computes the smoothest surface that fits fixed boundary vertices by solv
 
 **Decision.** The fairing solver factorizes its SPD matrix with a **sparse Cholesky** factorization, A = LLᵀ (up to a fill-reducing reordering), using CHOLMOD from SuiteSparse through `scikit-sparse` (`sksparse.cholmod.cho_factor`). This applies to fairing only. Implicit smoothing (#8) keeps SciPy's sparse LU (`scipy.sparse.linalg.factorized`), and is deliberately left as it is.
 
-**Why Cholesky.** App. A recommends sparse direct solvers, and Cholesky in particular, for SPD systems:
+*Notation:* A = LLᵀ is the book's notation (§A.4), and in this section L is the lower triangular factor, **not** the Laplace matrix. The code comment in `solve_fair` writes the same factorization as RᵀR, with R = Lᵀ.
+
+**Why Cholesky.** §A.4 calls the Cholesky factorization the most efficient choice for symmetric positive definite systems:
 - *Half the work and memory.* LU stores two triangular factors; Cholesky stores one, Lᵀ being the transpose of L. On the implicit-smoothing matrix of the 24 × 48 sphere (n = 1106), CHOLMOD's factor has **23 796** non-zeros, against **80 258** for SciPy's LU factors, about 3.4× less.
 - *No pivoting.* An SPD matrix can be factorized in any order without numerical trouble. The reordering can therefore be chosen purely to limit fill-in (AMD/METIS), not for stability.
 - *A free check.* Cholesky only exists for positive definite matrices. CHOLMOD raises `CholmodNotPositiveDefiniteError` otherwise, so a successful factorization *proves* that the constrained fairing matrix is SPD, which is the "Done when" of #9.
+- *The book's own comparison.* §A.6 (Table A.1) times SuperLU, the sparse LU behind SciPy's `factorized`, against a sparse Cholesky solver on Laplacian systems. Once the matrix is factorized, both solve about equally fast, but the Cholesky factorization itself is faster, because it needs no pivoting: 1.6× faster for 10k free vertices, and 4× faster for 500k.
 
 **How it is used.** `f = cho_factor(A)` computes the factorization once; `f.solve(b)` then solves for all right-hand sides at once, with b an n × 3 array for x, y and z. `tests/test_cholmod.py` pins down these two behaviors.
 
@@ -45,7 +48,7 @@ Compare with implicit smoothing (#8), where b ≠ 0. There the system (I − hλ
 | App. A.1 ("Definiteness") | sign (−1)ᵏ | `fairing.py:34` |
 | App. A.1 ("Definiteness") | A_ff and A_fc: free rows, split columns | `solve_fair`, `fairing.py:69–70` |
 | App. A.1 | right-hand side −A_fc x_c | `fairing.py:71` |
-| App. A (sparse Cholesky) | factorize A_ff once, solve x, y, z together | `fairing.py:73` |
+| §A.4 (sparse Cholesky) | factorize A_ff once, solve x, y, z together | `fairing.py:73` |
 
 L is built once from the input geometry and then frozen; that is what makes the system linear. The starting positions of the free vertices enter only through the cotangent weights, and #10 shows that this matters. The uniform weights do not depend on positions at all. If every vertex is free, the problem has no unique answer (constants solve it), and `solve_fair` raises a `ValueError`.
 
@@ -126,7 +129,7 @@ Heights alone cannot tell these surfaces apart; `10-two-membranes.png` measures 
 
 **Pitfalls.**
 - *An "exact answer" belongs to a specific problem.* x² − y² is exact for Eq. 4.8 over the flat (x, y) domain, not for Eq. 4.7. A first version of this step compared the cotangent result against it, concluded "it does not converge", and "fixed" this by building the weights from the flat grid. That only forced the cotangent solver to answer Eq. 4.8, and such a flat reference does not exist for a real mesh with a hole. It was removed. The correct check for the cotangent membrane is H → 0.
-- *The weights are frozen from the input.* Linearity comes from computing L once. With cotangent weights, a smooth start gives a sensible result in one solve; a start damaged at the scale of the edges does not. Height errors alone can hide this (orange: heights within 2·10⁻³, curvature 47); check H, or look at the mesh. The book's method for hole filling, and ways to obtain good weights without a reference, are discussed in #14.
+- *The weights are frozen from the input.* Linearity comes from computing L once. With cotangent weights, a smooth start gives a sensible result in one solve; a start damaged at the scale of the edges does not. Height errors alone can hide this (orange: heights within 2·10⁻³, curvature 47); check H, or look at the mesh. #14 applies the book's method to hole filling on a real mesh, where a clean (flattened) start gives good cotangent weights without any reference surface.
 - *Measure at the final (x, y).* The free vertices can move in x and y too, so the target height must be evaluated at their new position.
 
 ## #11 Thin plate and minimum variation (k = 2, 3)
@@ -297,7 +300,7 @@ To explore it in 3D, run `examples/04_polyscope_fig49.py`. It shows the same fou
 
 ## #13 Fairing as the limit of the flow
 
-**What the book claims.** §4.3 (p. 60–61) connects fairing back to the smoothing flow of §4.2, with four statements. For k = 1:
+**What the book claims.** §4.3 (p. 60–61) connects fairing back to the smoothing flow of §4.2, with four statements about the kth-order flow ∂x/∂t = Δᵏx. We test them for k = 1:
 1. Fair surfaces satisfy Δx = 0, so they are **steady states** of the flow ∂x/∂t = λΔx: the update vector vanishes there.
 2. **One explicit time step** of the flow is equivalent to **one (damped) Jacobi iteration** for solving Δx = 0.
 3. **One implicit time step with h = ∞** leads directly to Δx = 0.

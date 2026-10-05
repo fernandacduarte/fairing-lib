@@ -14,9 +14,10 @@ This phase builds the tools that every later experiment relies on: a package, sy
 | fairing, `Lᵏx = 0` (§4.3, Eq. A.2) | `fairing/fairing.py` |
 | figures | `fairing/viz.py` |
 
-**What the figures show.** None yet.
+**What the figures show.** No figure: this step has no geometry yet.
 
-**Pitfalls.** None so far.
+**Pitfalls.**
+- *The sparse Cholesky solver needs a C library.* The fairing solver (added in PR #25, before #9) uses CHOLMOD through `scikit-sparse`, which has no prebuilt wheels: pip compiles it against SuiteSparse, which must be installed first. On macOS the build also needs the `SUITESPARSE_*_DIR` variables and `CPLUS_INCLUDE_PATH`, or `clang++` cannot find `<complex>`. The README's "Install" section has the commands, and CI installs `libsuitesparse-dev` first; see also `phase-4.md`, "Solver choice".
 
 ## #2 Synthetic meshes and OBJ I/O
 
@@ -32,7 +33,7 @@ This phase builds the tools that every later experiment relies on: a package, sy
 
 `save_obj` (`mesh.py:204`) and `load_obj` (`mesh.py:213`) read and write triangle meshes in OBJ format (indices are 1-based in the file, 0-based in `F`).
 
-**What the figures show.** No figure yet; the first one (all four meshes) comes in #3.
+**What the figures show.** No figure in this step; #3 draws all four meshes.
 
 **Pitfalls.**
 - *The diagonal direction matters.* If quads were split with alternating diagonals, interior valences would alternate between 4 and 8 instead of all being 6, so the ring sizes would vary from vertex to vertex. With a single diagonal the grid is a hexagonal lattice: every interior neighborhood looks the same, and every neighbor has a mirror partner through the center vertex.
@@ -80,10 +81,10 @@ Checks in `tests/test_topology.py`: grid boundary 2(nx + ny) − 4, sphere 0, tu
 
 ![Rings grown from the boundary and from one vertex](../img/04-rings.png)
 
-`docs/img/04-rings.png`, left: the setup that #9–#11 will use. The orange vertices form a free disk; they will move when we solve `Lᵏx = 0`. Everything else is fixed. The fixed rings are grown **outward from the free region**: ring 1 touches it, ring 2 is one step further, and so on. Solving with Lᵏ needs the first k of these rings (k = 1 needs ring 1, k = 2 needs rings 1–2, k = 3 needs rings 1–3), because the Laplacian at a free vertex next to the edge, applied k times, reaches k rings outward. Right: rings grown from a single vertex (star). Ring k adds 6k vertices (6, 12, 18), so the k-ring holds 1 + 3k(k+1) vertices: this is the stencil that Lᵏ reaches (App. A.1).
+`docs/img/04-rings.png`, left: the setup that #9–#11 use. The orange vertices form a free disk; they will move when we solve `Lᵏx = 0`. Everything else is fixed. The fixed rings are grown **outward from the free region**: ring 1 touches it, ring 2 is one step further, and so on. Solving with Lᵏ needs the first k of these rings (k = 1 needs ring 1, k = 2 needs rings 1–2, k = 3 needs rings 1–3), because the Laplacian at a free vertex next to the edge, applied k times, reaches k rings outward. Right: rings grown from a single vertex (star). Ring k adds 6k vertices (6, 12, 18), so the k-ring holds 1 + 3k(k+1) vertices: this is the stencil that Lᵏ reaches (App. A.1).
 
 **Pitfalls.**
 - *Graph distance is not Euclidean distance.* The rings around one vertex form a hexagon sheared along the diagonal direction, not a circle: the diagonal edges make one diagonal direction "shorter" than the other. A "k-ring" band is a topological notion, and on irregular meshes its physical width can vary.
-- *Boundary detection relies on manifold edges.* An edge is counted as boundary when exactly one triangle uses it. A non-manifold edge (three or more triangles) would be counted as interior; our synthetic meshes are all manifold, but the bunny (#14) must be checked.
+- *Boundary detection relies on manifold edges.* An edge is counted as boundary when exactly one triangle uses it. A non-manifold edge (three or more triangles) would be counted as interior; our synthetic meshes are all manifold, but real data may not be. #14 checks the bunny with `edge_face_counts` (phase 5).
 - *Which way do the rings grow?* `ring_distance` grows rings outward from whatever seed set it is given. Seeded with the mesh boundary, the rings march inward, which is not what fairing needs. Fairing seeds them with the free region, so the rings grow outward into the fixed part. A first version of the figure seeded the boundary and was confusing; it was replaced.
 - *A plain flat mesh seen from above is shaded gray.* matplotlib lights the surface from an oblique angle, so `plot_mesh` gained `color` and `shade=False` for these top-down diagrams.
