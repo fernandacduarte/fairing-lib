@@ -102,7 +102,7 @@ M is symmetric and D⁻¹ is diagonal, so the matrix is symmetric. It is also po
 | §4.2, App. A.1 | factorize D⁻¹ − hλM once per step | `smoothing.py:75` |
 | App. A.1 | right-hand side D⁻¹x | `smoothing.py:76` |
 | §4.2 | solve for x', y', z' with the same factorization | `smoothing.py:77` |
-| Fig. 4.6 setting | exact sphere, vertices moved *along* it | `irregular_sphere`, `fairing/mesh.py:99` |
+| Fig. 4.6 setting | exact sphere, vertices moved *along* it | `irregular_sphere`, `fairing/mesh.py:119` |
 
 Tests (`tests/test_smoothing.py`): D⁻¹ − hλM is symmetric and passes a Cholesky factorization. The symmetric solve also satisfies the original (I − hλL)x' = x. For tiny h, implicit and explicit agree, as two first-order methods should. Far above h_max (10× for uniform, 300× for cotan) one implicit step stays bounded and removes most of the noise. On an irregular sphere, the cotangent flow changes triangle angles by < 0.5° and the uniform flow by > 5°.
 
