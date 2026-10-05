@@ -78,6 +78,7 @@ pip install -e ".[viewer]"
 | `python examples/04_polyscope_elbow.py` | the two-pipe elbow of Fig. 4.8: start and results for k = 1, 2, 3 (fixed gray, free blue), smoothly shaded |
 | `python examples/04_polyscope_fig49.py` | Fig. 4.9 setting (#12): graded mesh, exact surface, uniform and cotangent thin plates, with curvature, error and sideways-slide quantities |
 | `python examples/05_polyscope_bunny.py` | the Stanford bunny (#14): original, damaged inputs and thin-plate refills, with free region and curvature quantities (needs the download below) |
+| `python examples/05_polyscope_bunny_explorer.py` | **interactive explorer** on the bunny: a panel to change the region size, the damage, the order k and the weights; the refill is re-solved at once, with curvature colors, a ghost of the original and live numbers (needs the download below) |
 
 **3. In the window:** drag with the left mouse button to rotate, drag with the right button to pan, and scroll to zoom. The left panel lists the meshes: use the checkboxes to show or hide them, and open a mesh's entry to change its color, edges, or scalar colormap.
 

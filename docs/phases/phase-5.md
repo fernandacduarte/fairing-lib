@@ -52,7 +52,10 @@ Tests (`tests/test_fairing.py`, `tests/test_mesh.py`). A sphere stands in for th
 - Third column, uniform refills: identical in both rows, smooth.
 - Fourth column, cotangent refills: rough with dark spikes from the noisy start (81), the smoothest from the flattened start (15).
 
-To explore it in 3D: `examples/05_polyscope_bunny.py` (original, damaged inputs and all four refills, with free-region and curvature quantities), or the snippet in the README.
+To explore it in 3D:
+- `examples/05_polyscope_bunny_explorer.py` is an **interactive explorer**. One bunny, with the camera on the region, and a panel to change the region's size (rings), the damage (none, noise with its level, flatten), the order k (1, 2, 3) and the weights (uniform, cotangent). Each change re-solves at once. The panel shows the clearance from problem edges (with a warning when the region gets too close), the mean |H| of the original, the start and the result, and the distance to the original. A transparent ghost of the original can be overlaid.
+- `examples/05_polyscope_bunny.py` shows the original, the damaged inputs and all four refills side by side.
+- The README has a short snippet.
 
 **Pitfalls.**
 - *Check the mesh before trusting the operators.* Real data can be non-manifold, especially after decimation. Our `boundary_vertices` counts an edge as interior unless exactly one triangle uses it, so a non-manifold edge would silently pass. `edge_face_counts` makes the problem visible, and keeping k + 1 rings away from it makes it irrelevant for the solve.
