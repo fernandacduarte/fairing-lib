@@ -187,6 +187,8 @@ Tests (`tests/test_fairing.py`): rings 1–3 around the free region end before t
 - **k = 2:** a round elbow, joining both pipes tangentially.
 - **k = 3:** an even fuller, more evenly curved elbow.
 
+The README opens with the top row alone, [`11-elbow-k123-readme.png`](../img/11-elbow-k123-readme.png). `examples/04_readme_elbow.py` crops it from this figure without resampling, so run it after `04_fairing.py`.
+
 On the outer side of the bend (θ = π), the joint angle at the vertical pipe, at spacings 0.1 / 0.05 / 0.025, is:
 - k = 1: **70.4° / 70.9° / 71.1°**, a large kink that does not shrink;
 - k = 2: 7.7° / 4.1° / 2.1° (∝ h, C¹);

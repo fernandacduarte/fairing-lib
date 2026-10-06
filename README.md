@@ -106,7 +106,7 @@ Every PNG in `docs/img/` is written by one of seven scripts. Run them from the r
 | `python examples/05_bunny.py` | `14-bunny-before-after.png` | [phase 5](docs/phases/phase-5.md) | the bunny download and `.[mesh]` |
 | `python examples/05_bunny_book_region.py` | `14-bunny-book-region.png` | [phase 5](docs/phases/phase-5.md) | the bunny download and `.[mesh]` |
 
-The scripts overwrite the committed PNGs, and the bunny scripts also print the numbers quoted in the phase-5 note. Together they take about 15 seconds. To check the result, run `git status docs/img`. From a clean checkout, with Python 3.11.11, numpy 2.4.6, scipy 1.17.1, matplotlib 3.11.2, scikit-sparse 0.5.0 and trimesh 5.1.1, all 21 PNGs came out byte-identical to the committed ones, so `git status` showed no change. With other versions, the images may differ slightly, so compare them by eye.
+The scripts overwrite the committed PNGs, and the bunny scripts also print the numbers quoted in the phase-5 note. Together they take about 15 seconds. To check the result, run `git status docs/img`. From a clean checkout, with Python 3.11.11, numpy 2.4.6, scipy 1.17.1, matplotlib 3.11.2, Pillow 12.3.0, scikit-sparse 0.5.0 and trimesh 5.1.1, all 22 PNGs came out byte-identical to the committed ones, so `git status` showed no change. With other versions, the images may differ slightly, so compare them by eye.
 
 ## Gallery
 
