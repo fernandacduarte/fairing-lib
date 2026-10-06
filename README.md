@@ -6,9 +6,9 @@ A small Python library for studying **mesh smoothing and fairing** as presented 
 - [docs/PROGRESS.md](docs/PROGRESS.md): the current status, the design decisions and the pitfalls found so far.
 - [docs/phases/](docs/phases/): one study note per phase, mapping each equation to the code that implements it (see [Study notes](#study-notes)).
 
-![Two fixed gray pipes joined by a purple bend, faired with k = 1, 2, 3](docs/img/11-elbow-k123-readme.png)
+![Two fixed gray pipes joined by a blue bend, faired with k = 1, 2, 3](docs/img/11-elbow-k123-readme.png)
 
-*Two fixed pipes (gray) joined by a free bend (purple), faired with k = 1, 2 and 3, the setting of the book's Fig. 4.8. The k = 1 membrane kinks at the joints, while k = 2 and 3 join the pipes smoothly.*
+*Two fixed pipes (gray) joined by a free bend (blue), faired with k = 1, 2 and 3, the setting of the book's Fig. 4.8. The k = 1 membrane kinks at the joints, while k = 2 and 3 join the pipes smoothly.*
 
 ## What is fairing?
 

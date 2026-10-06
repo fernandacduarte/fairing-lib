@@ -1,4 +1,4 @@
-"""Extract the purple fairing comparison for the README from the full figure.
+"""Extract the blue fairing comparison for the README from the full figure.
 
 Run after examples/04_fairing.py if the source figure has been regenerated:
 
