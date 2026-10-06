@@ -6,9 +6,9 @@ A small Python library for studying **mesh smoothing and fairing** as presented 
 - [docs/PROGRESS.md](docs/PROGRESS.md): the current status, the design decisions and the pitfalls found so far.
 - [docs/phases/](docs/phases/): one study note per phase, mapping each equation to the code that implements it (see [Study notes](#study-notes)).
 
-![Two fixed pipes joined by a free bend, faired with k = 1, 2, 3](docs/img/11-elbow-k123.png)
+![Two fixed gray pipes joined by a blue bend, faired with k = 1, 2, 3](docs/img/11-elbow-k123-readme.png)
 
-*Two fixed pipes (gray) joined by a free bend (blue), faired with k = 1, 2 and 3, the setting of the book's Fig. 4.8. The bottom row shows the mean curvature: the k = 1 membrane kinks at the joints, while k = 2 and 3 join the pipes smoothly.*
+*Two fixed pipes (gray) joined by a free bend (blue), faired with k = 1, 2 and 3, the setting of the book's Fig. 4.8. The k = 1 membrane kinks at the joints, while k = 2 and 3 join the pipes smoothly.*
 
 ## What is fairing?
 
@@ -94,7 +94,7 @@ Meshes are plain NumPy arrays: `V` is `(n, 3)` float and `F` is `(m, 3)` int. Ev
 
 ## Reproduce every figure
 
-Every PNG in `docs/img/` is written by one of six scripts. Run them from the repository root, inside `.venv`:
+Every PNG in `docs/img/` is written by one of seven scripts. Run them from the repository root, inside `.venv`:
 
 | Script | Figures | Phase note | Needs |
 |---|---|---|---|
@@ -102,10 +102,11 @@ Every PNG in `docs/img/` is written by one of six scripts. Run them from the rep
 | `python examples/02_laplacian.py` | `05-uniform-Lx.png`, `06-uniform-vs-cotan.png`, `06-sphere-H.png` | [phase 2](docs/phases/phase-2.md) | — |
 | `python examples/03_smoothing.py` | `07-explicit-iters.png`, `07-explicit-unstable.png`, `08-implicit-large-h.png`, `08-uniform-vs-cotan-shapes.png` | [phase 3](docs/phases/phase-3.md) | — |
 | `python examples/04_fairing.py` | `09-sparsity.png`, `10-membrane.png`, `10-two-membranes.png`, `11-tube-k123.png`, `11-profile.png`, `11-elbow-k123.png`, `11-elbow-profiles.png`, `11-elbow-weights.png`, `12-uniform-vs-cotan-fairing.png`, `13-flow-to-fair.png` | [phase 4](docs/phases/phase-4.md) | — |
+| `python examples/04_readme_elbow.py` | `11-elbow-k123-readme.png` | README opening image | run after `04_fairing.py`; crops its first row without resampling |
 | `python examples/05_bunny.py` | `14-bunny-before-after.png` | [phase 5](docs/phases/phase-5.md) | the bunny download and `.[mesh]` |
 | `python examples/05_bunny_book_region.py` | `14-bunny-book-region.png` | [phase 5](docs/phases/phase-5.md) | the bunny download and `.[mesh]` |
 
-The scripts overwrite the committed PNGs, and the bunny scripts also print the numbers quoted in the phase-5 note. Together they take about 15 seconds. To check the result, run `git status docs/img`. From a clean checkout, with Python 3.11.11, numpy 2.4.6, scipy 1.17.1, matplotlib 3.11.2, scikit-sparse 0.5.0 and trimesh 5.1.1, all 21 PNGs came out byte-identical to the committed ones, so `git status` showed no change. With other versions, the images may differ slightly, so compare them by eye.
+The scripts overwrite the committed PNGs, and the bunny scripts also print the numbers quoted in the phase-5 note. Together they take about 15 seconds. To check the result, run `git status docs/img`. From a clean checkout, with Python 3.11.11, numpy 2.4.6, scipy 1.17.1, matplotlib 3.11.2, Pillow 12.3.0, scikit-sparse 0.5.0 and trimesh 5.1.1, all 22 PNGs came out byte-identical to the committed ones, so `git status` showed no change. With other versions, the images may differ slightly, so compare them by eye.
 
 ## Gallery
 
