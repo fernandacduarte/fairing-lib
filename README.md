@@ -1,6 +1,6 @@
 # fairing-lib
 
-A small Python library for studying **mesh smoothing and fairing** as presented in *Polygon Mesh Processing* by Botsch, Kobbelt, Pauly, Alliez and Lévy (A K Peters, 2010), Chapters 3–4 and Appendix A. Each step is small, cites the equation it implements, and comes with a test and a figure. The book is not included: this repository cites it only by section, equation and figure number.
+A small Python library for studying **mesh smoothing and fairing** as presented in *Polygon Mesh Processing* by Botsch, Kobbelt, Pauly, Alliez and Lévy (A K Peters, 2010), Chapters 3–4 and Appendix A. The book is not included: this repository cites it only by section, equation and figure number.
 
 - [PLAN.md](PLAN.md): the roadmap, one GitHub issue per step.
 - [docs/PROGRESS.md](docs/PROGRESS.md): the current status, the design decisions and the pitfalls found so far.
