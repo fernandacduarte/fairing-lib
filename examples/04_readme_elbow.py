@@ -41,7 +41,8 @@ def figure_readme_elbow():
         ax.view_init(10, -100)
         ax.set_axis_off()
         ax.set_title(title, fontsize=12, pad=4)
-    fig.suptitle("Bend radius 1.25 · pipe radius 1 · refined mesh", fontsize=16, y=0.98)
+    fig.suptitle("Two pipes at 90° (fixed) joined by a free bend: compare with Fig. 4.8",
+                 fontsize=16, y=0.98)
     fig.text(0.5, 0.015,
              f"{len(V):,} vertices · {len(F):,} triangles · gray: fixed pipes · blue: faired region",
              ha="center", fontsize=10, color="#555555")
