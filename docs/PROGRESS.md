@@ -8,6 +8,7 @@
 - [x] Phase 4: #9 constrained solver (PR #26), #10 membrane (PR #27), #11 thin plate / min. variation (PR #28), #12 uniform vs cotan (PR #29), #13 flow → fair (PR #30)
 - [x] Phase 5: #14 bunny hole filling, with a Fig. 4.7-like hole (PR #31), #15 README, gallery, notes review (PR #32). **The plan is complete.**
 - [x] Follow-up: #33 stricter citation test, which checks the cited statement (PR #34)
+- [x] Follow-up: three-panel elbow-profile comparison with explicit cotangent/uniform labels and a dedicated regeneration command.
 
 ## Next
 - Nothing planned. Moonshot M1 (#16, mixed Voronoi area): only if the user asks.

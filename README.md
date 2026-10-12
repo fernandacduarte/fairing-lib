@@ -108,6 +108,12 @@ Every PNG in `docs/img/` is written by one of seven scripts. Run them from the r
 
 The scripts overwrite the committed PNGs, and the bunny scripts also print the numbers quoted in the phase-5 note. The README image is generated independently on a finer mesh than the phase-4 gallery figures, so it takes longer to solve and render. To check the result, run `git status docs/img`. PNG bytes can differ with dependency versions and rendering backends, so compare the images visually when they change.
 
+To regenerate only the three-panel elbow-profile comparison of cotangent and uniform weights:
+
+```bash
+python examples/04_fairing.py --elbow-profiles
+```
+
 ## Gallery
 
 Each figure is explained in its phase note, under the issue number given here.
@@ -146,7 +152,7 @@ Each figure is explained in its phase note, under the issue number given here.
 | <img src="docs/img/11-tube-k123.png" width="420" alt="Tube blend for k = 1, 2, 3"> | **#11.** A tube blend for k = 1, 2, 3, colored by mean curvature: a kink at the joints for k = 1, smooth joints for k = 2 and 3. |
 | <img src="docs/img/11-profile.png" width="420" alt="Meridian profiles"> | **#11.** One meridian of the tube blend: k = 1 meets the fixed bands at an angle, while k = 2 and 3 leave them tangentially. |
 | <img src="docs/img/11-elbow-k123.png" width="420" alt="Two pipes at 90 degrees, k = 1, 2, 3"> | **#11.** The setting of Fig. 4.8: two fixed pipes at 90° joined by a free bend, for k = 1, 2, 3. |
-| <img src="docs/img/11-elbow-profiles.png" width="420" alt="Elbow profiles from two starts"> | **#11.** With cotangent weights, the k = 3 elbow depends on where the bend starts. With uniform weights it does not, but its compressed inner side folds. |
+| <img src="docs/img/11-elbow-profiles.png" width="420" alt="Separate cotangent and uniform elbow-profile panels"> | **#11.** Separate panels show cotangent orders 2 and 3, cotangent order 3 from two initializations, and the uniform result shared by both initializations. Dashed/dotted inputs and solid colored results distinguish the starting shapes from the solutions. |
 | <img src="docs/img/11-elbow-weights.png" width="420" alt="Weights from a straight tube"> | **#11.** Weights frozen from a straight tube instead of the bent start make the inner side of the bend fold into a crease. |
 | <img src="docs/img/12-uniform-vs-cotan-fairing.png" width="420" alt="Uniform vs cotangent thin plate on a graded mesh"> | **#12.** The idea of Fig. 4.9: a thin plate on a mesh of varying density. Uniform weights create bumps where dense bands cross the free disk; cotangent weights reproduce the exact saddle. |
 | <img src="docs/img/13-flow-to-fair.png" width="420" alt="Fairing as the limit of the flow"> | **#13.** Fairing as the limit of the flow (p. 61): one implicit step approaches the fair surface like 1/h, and explicit steps (damped Jacobi iterations) converge to it. |

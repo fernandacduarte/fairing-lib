@@ -4,12 +4,17 @@ Run from the repository root:
 
     python examples/04_fairing.py
 
+To regenerate only the elbow-profile comparison:
+
+    python examples/04_fairing.py --elbow-profiles
+
 Saves docs/img/09-sparsity.png, docs/img/10-membrane.png,
 docs/img/10-two-membranes.png, docs/img/11-tube-k123.png, docs/img/11-profile.png, docs/img/11-elbow-k123.png,
 docs/img/11-elbow-profiles.png, docs/img/11-elbow-weights.png,
 docs/img/12-uniform-vs-cotan-fairing.png and docs/img/13-flow-to-fair.png.
 """
 
+import argparse
 from pathlib import Path
 
 import matplotlib
@@ -255,49 +260,90 @@ def chamfered_start(V, bend, n_theta):
 def figure_elbow_profiles():
     """Issue #11 (extra): the elbow's outer and inner meridians in the bend plane (y = 0).
 
-    Left: k = 2, 3 from the quarter-torus start. Right: k = 3 from two different starts
-    (cotangent weights depend on the start; uniform weights do not).
+    Separate panels show cotangent orders 2 and 3, cotangent order 3 from two
+    starts, and the uniform order-3 result shared by both starts.
     """
     n_theta = 48
     V, F, bend = mesh.pipe_elbow(n_theta=n_theta)
-    rings = lambda W: W.reshape(-1, n_theta, 3)
-    joints = np.flatnonzero(bend.reshape(-1, n_theta)[:, 0])[[0, -1]] + [-1, 1]
+    rings = V.reshape(-1, n_theta, 3)
+    free_rings = np.flatnonzero(bend.reshape(-1, n_theta)[:, 0])
+    first, last = free_rings[0] - 1, free_rings[-1] + 1
     V_chamfer = chamfered_start(V, bend, n_theta)
+    cotan_k2 = solve_fair(V, F, bend, 2, "cotan")
+    cotan_k3_a = solve_fair(V, F, bend, 3, "cotan")
+    cotan_k3_b = solve_fair(V_chamfer, F, bend, 3, "cotan")
+    uniform_k3_a = solve_fair(V, F, bend, 3, "uniform")
+    uniform_k3_b = solve_fair(V_chamfer, F, bend, 3, "uniform")
+    # Plot a single curve only after verifying that both starts give the same result.
+    np.testing.assert_allclose(uniform_k3_a, uniform_k3_b, rtol=0, atol=1e-12)
+    colors = {"input": "#7c8289", "fixed": "#bdc2c8", "k2": "#1f89c5",
+              "k3a": "#164b88", "k3b": "#dc7026", "uniform": "#7753a8"}
 
-    def meridians(ax, W, color, label, dashed=False, lw=2.0):
-        for i in (n_theta // 2, 0):                                # outer (theta = pi), inner (theta = 0)
-            ax.plot(rings(W)[:, i, 0], rings(W)[:, i, 2], color=color, lw=lw,
-                    dashes=(4, 3) if dashed else (), label=label if i == n_theta // 2 else None)
+    def meridians(ax, W, label, color, ls="-", lw=2.8):
+        positions = W.reshape(-1, n_theta, 3)
+        for index, i in enumerate((n_theta // 2, 0)):              # outer and inner sides
+            ax.plot(positions[first:last + 1, i, 0], positions[first:last + 1, i, 2],
+                    color=color, linestyle=ls, linewidth=lw,
+                    label=label if index == 0 else None, zorder=3 if ls == "-" else 2)
 
-    fig, (left, right) = plt.subplots(1, 2, figsize=(12, 6.4))
-    meridians(left, V, "#8a8984", "quarter torus (start)", dashed=True, lw=1.5)
-    meridians(left, solve_fair(V, F, bend, 2), "#3987e5", "k = 2")
-    meridians(left, solve_fair(V, F, bend, 3), "#0d366b", "k = 3")
-    left.set_title("from the quarter-torus start:\nthe outer side takes a shortcut")
+    # Scope the styling so the other phase-4 figures retain their existing defaults.
+    with plt.rc_context({"font.family": "DejaVu Sans", "font.size": 12,
+                         "axes.titlesize": 15, "axes.labelsize": 12,
+                         "xtick.labelsize": 10, "ytick.labelsize": 10}):
+        fig, axes = plt.subplots(1, 3, figsize=(17.4, 8.4), sharex=True, sharey=True)
+        fig.subplots_adjust(left=0.045, right=0.985, bottom=0.32, top=0.77, wspace=0.17)
+        for ax in axes:
+            for i in (n_theta // 2, 0):
+                for segment in (slice(None, first + 1), slice(last, None)):
+                    ax.plot(rings[segment, i, 0], rings[segment, i, 2],
+                            color=colors["fixed"], linewidth=3.3, zorder=1)
+            for j in (first, last):
+                ax.plot(rings[j, [0, n_theta // 2], 0], rings[j, [0, n_theta // 2], 2],
+                        color=colors["fixed"], linewidth=1.0, zorder=1)
+            ax.set_aspect("equal", adjustable="box")
+            ax.set_xlim(-1.2, 2.85)
+            ax.set_ylim(-1.2, 2.85)
+            ax.set_xlabel("x")
+            ax.spines[["top", "right"]].set_visible(False)
+            ax.spines[["left", "bottom"]].set_color("#c6cad0")
+            ax.tick_params(color="#c6cad0", length=3)
+        axes[0].set_ylabel("z")
 
-    meridians(right, V, "#8a8984", "quarter torus (start A)", dashed=True, lw=1.5)
-    meridians(right, V_chamfer, "#d9a38a", "chamfer (start B)", dashed=True, lw=1.5)
-    meridians(right, solve_fair(V, F, bend, 3), "#0d366b", "k = 3, cotangent, from A")
-    meridians(right, solve_fair(V_chamfer, F, bend, 3), "#eb6834", "k = 3, cotangent, from B")
-    meridians(right, solve_fair(V, F, bend, 3, "uniform"), "#86b6ef", "k = 3, uniform (same from A or B)")
-    right.set_title("k = 3 from two different starts:\ncotangent depends on the start, uniform does not")
+        meridians(axes[0], V, "Input A: quarter torus", colors["input"], "--", 1.8)
+        meridians(axes[0], cotan_k2, "Cotangent result: k = 2", colors["k2"])
+        meridians(axes[0], cotan_k3_a, "Cotangent result: k = 3", colors["k3a"])
+        axes[0].set_title("COTANGENT WEIGHTS\nOrders 2 and 3 from input A", pad=19,
+                          color=colors["k3a"], fontweight="bold", linespacing=1.55)
+        for ax in axes[1:]:
+            meridians(ax, V, "Input A: quarter torus", colors["input"], "--", 1.8)
+            meridians(ax, V_chamfer, "Input B: chamfer", colors["input"], ":", 2.0)
+        meridians(axes[1], cotan_k3_a, "Cotangent result: k = 3, from A", colors["k3a"])
+        meridians(axes[1], cotan_k3_b, "Cotangent result: k = 3, from B", colors["k3b"])
+        axes[1].set_title("COTANGENT WEIGHTS\nOrder 3 from inputs A and B", pad=19,
+                          color=colors["k3a"], fontweight="bold", linespacing=1.55)
+        meridians(axes[2], uniform_k3_a, "Uniform result: k = 3, from A or B", colors["uniform"])
+        axes[2].set_title("UNIFORM WEIGHTS\nOrder 3 from inputs A and B", pad=19,
+                          color=colors["uniform"], fontweight="bold", linespacing=1.55)
 
-    for ax in (left, right):
-        for j in joints:                                            # the two joint rings
-            ax.plot(rings(V)[j, [0, n_theta // 2], 0], rings(V)[j, [0, n_theta // 2], 2],
-                    color="#c3c2b7", lw=1, zorder=0)
-        ax.set_aspect("equal")
-        ax.set_xlim(-1.3, 2.9)
-        ax.set_ylim(-1.3, 2.9)
-        ax.set_xlabel("x")
-        ax.set_ylabel("z")
-        for side in ("top", "right"):
-            ax.spines[side].set_visible(False)
-        ax.legend(frameon=False, fontsize=8.5, loc="lower right")
-    fig.suptitle("Elbow in the bend plane (y = 0): outer and inner sides of the pipe; "
-                 "gray lines = the two joints", y=1.0)
-    fig.tight_layout()
-    fig.savefig(IMG / "11-elbow-profiles.png", dpi=150, bbox_inches="tight")
+        messages = ("Compare the orders using the same input",
+                    "Different inputs produce different results",
+                    "Both results coincide: one purple curve")
+        for ax, message in zip(axes, messages):
+            ax.text(0.5, -0.16, message, transform=ax.transAxes, ha="center", va="top",
+                    fontsize=11.5, fontweight="bold", color="#303943")
+            ax.legend(loc="upper left", bbox_to_anchor=(0.01, -0.215), frameon=False,
+                      fontsize=10.7, handlelength=3.0, labelspacing=0.6)
+        fig.suptitle("Elbow profiles: cotangent and uniform results", fontsize=23,
+                     fontweight="bold", color="#202d3a", y=0.965)
+        fig.text(0.5, 0.915,
+                 "Outer and inner meridians (y = 0), with identical connectivity and fixed pipes.\n"
+                 "Input A: quarter torus. Input B: chamfer.",
+                 ha="center", va="top", fontsize=12.5, color="#485563", linespacing=1.5)
+        fig.text(0.5, 0.025,
+                 "Dashed / dotted curves: initial inputs     Solid colored curves: computed free region     "
+                 "Gray segments: fixed pipes", ha="center", fontsize=11.5, color="#485563")
+        fig.savefig(IMG / "11-elbow-profiles.png", dpi=220, facecolor="white")
+        plt.close(fig)
     print("saved", IMG / "11-elbow-profiles.png")
 
 
@@ -448,14 +494,21 @@ def figure_flow_to_fair():
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Generate the phase-4 fairing figures.")
+    parser.add_argument("--elbow-profiles", action="store_true",
+                        help="generate only the cotangent/uniform elbow-profile comparison")
+    args = parser.parse_args()
     IMG.mkdir(parents=True, exist_ok=True)
-    figure_sparsity()
-    figure_membrane()
-    figure_two_membranes()
-    figure_tube_blend()
-    figure_profile()
-    figure_elbow()
-    figure_elbow_profiles()
-    figure_elbow_weights()
-    figure_fig49()
-    figure_flow_to_fair()
+    if args.elbow_profiles:
+        figure_elbow_profiles()
+    else:
+        figure_sparsity()
+        figure_membrane()
+        figure_two_membranes()
+        figure_tube_blend()
+        figure_profile()
+        figure_elbow()
+        figure_elbow_profiles()
+        figure_elbow_weights()
+        figure_fig49()
+        figure_flow_to_fair()
