@@ -38,13 +38,13 @@ RADIUS = 0.035                                # about the size of the hole in Fi
 VIEW = (15, -60)                              # matched by eye to Fig. 4.7: head left, haunch right
 
 
-def book_region(V, F, radius=RADIUS):
-    """The free region: vertices within `radius` of the haunch vertex closest to TARGET,
-    keeping only the connected piece that contains it.
+def book_region(V, F, radius=RADIUS, target=TARGET):
+    """The free region: vertices within `radius` of the vertex closest to `target` (by default
+    the haunch), keeping only the connected piece that contains it.
 
     Also returns the region's Euler characteristic (1 for a disk) and its distance, in rings,
     to the mesh's boundary edges (the region's equations reach k + 1 rings beyond it)."""
-    seed = int(np.argmin(np.linalg.norm(V - TARGET, axis=1)))
+    seed = int(np.argmin(np.linalg.norm(V - target, axis=1)))
     near = np.flatnonzero(np.linalg.norm(V - V[seed], axis=1) < radius)
     _, label = connected_components(mesh.adjacency(F, len(V))[near][:, near], directed=False)
     free = np.zeros(len(V), dtype=bool)

@@ -72,3 +72,43 @@ def solve_fair(V, F, free_mask, k, laplacian="cotan"):
     V_new = V.copy()
     V_new[free] = cho_factor(A_ff.tocsc()).solve(rhs)      # Cholesky: A_ff = R^T R (permuted)
     return V_new
+
+
+def solve_fair_with_reference(V, F, free_mask, k, laplacian="cotan", *, reference_V):
+    """Fair ``V`` using an operator frozen on the separate geometry ``reference_V``.
+
+    Both position arrays must have shape ``(n, 3)`` and use the same vertex
+    numbering and triangle connectivity ``F``. ``reference_V`` supplies the
+    triangle angles and vertex areas; ``V[~free_mask]`` supplies the prescribed
+    output positions. The values of ``V[free_mask]`` do not affect the solution.
+
+    Solve ``L(reference_V)^k X = 0`` on the free vertices with the same sparse
+    Cholesky formulation as :func:`solve_fair`. The result contains positions,
+    not displacements from the reference. Uniform weights ignore the reference
+    positions. With ``reference_V=V``, this reproduces :func:`solve_fair`.
+
+    Returns a new ``(n, 3)`` array, preserving the constrained positions exactly.
+    Neither input geometry nor ``F`` is modified. This is a linear reference
+    model; it does not enforce preservation of volume or prevent intersections.
+    """
+    V = np.asarray(V, dtype=float)
+    reference_V = np.asarray(reference_V, dtype=float)
+    free = np.asarray(free_mask, dtype=bool)
+    if V.ndim != 2 or V.shape[1] != 3 or reference_V.shape != V.shape:
+        raise ValueError("V and reference_V must have the same shape (n, 3) and vertex numbering")
+    if free.shape != (len(V),):
+        raise ValueError("free_mask must have shape (n,)")
+    if not np.isfinite(reference_V).all():
+        raise ValueError("reference_V must contain finite coordinates")
+    if not free.any():
+        return V.copy()
+    if free.all():
+        raise ValueError("at least one vertex must be constrained, or L^k x = 0 has no unique solution")
+
+    A = fairing_matrix(reference_V, F, k, laplacian)
+    A_ff = A[free][:, free]
+    A_fc = A[free][:, ~free]
+    rhs = -(A_fc @ V[~free])
+    V_new = V.copy()
+    V_new[free] = cho_factor(A_ff.tocsc()).solve(rhs)
+    return V_new

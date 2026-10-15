@@ -21,7 +21,7 @@ Both are answered with one sparse matrix: the **discrete Laplace–Beltrami oper
 - **Smoothing is a flow.** Vertices move along `Lx`, as heat diffuses: `∂x/∂t = λLx` (Eq. 4.5–4.6). Explicit time steps are cheap, but they must be small enough. The book uses implicit steps for large steps (§4.2): they solve a sparse linear system, and Phase 3 shows they are stable for any step size.
 - **Fairing jumps to where such a flow ends.** It asks for `Lᵏx = 0` at the free vertices (§4.3): a **membrane** for k = 1, a **thin plate** for k = 2 and a **minimum variation surface** for k = 3. These fair surfaces are the steady states of the kth-order flow `∂x/∂t = Δᵏx` (p. 60–61). With k rings of vertices fixed around the free region, the order k sets the smoothness at the joint, up to C^(k−1) (Fig. 4.8): the k = 1 membrane can kink, the thin plate joins the fixed part tangentially, and k = 3 matches its curvature too, as in the figure above. Each solve is one sparse symmetric positive definite system (Eq. A.2), which we factorize with sparse Cholesky (§A.4).
 
-These are the book's **linear** methods: the weights are computed once from the input mesh and then frozen. That is why each solve is a single linear system, but it also means the result can depend on the mesh. Uniform weights depend on the sampling, and cotangent weights on where the free vertices start. The phase notes measure both effects.
+These are the book's **linear** methods: the weights are computed once from a reference mesh and then frozen. `solve_fair` uses the input mesh as that reference; `solve_fair_with_reference` accepts it separately. That is why each solve is a single linear system, but it also means the result can depend on the reference mesh. Uniform weights depend on connectivity, and cotangent weights on the reference angles and areas. The phase notes measure both effects.
 
 ## Install
 
@@ -82,6 +82,18 @@ viz.compare([(W, F) for W in faired], ["k = 1", "k = 2", "k = 3"], views=[(10, -
 plt.show()
 ```
 
+To separate the reference geometry from the prescribed output positions:
+
+```python
+from fairing.fairing import solve_fair_with_reference
+
+# reference_V and V must share F and the same vertex numbering.
+# V supplies the fixed positions; V[bend] contains unused placeholders.
+W = solve_fair_with_reference(V, F, bend, k=2, reference_V=reference_V)
+```
+
+The standalone `python examples/04_reference_elbow.py` builds an aligned straight tube as the reference, rotates and translates the upper fixed pipe to 90 degrees, and solves all three orders. It constructs no quarter torus. The resulting [comparison](docs/img/11-elbow-k123-reference.png) uses the original README image's resolution and dimensions. It also exposes a limitation: orders 2 and 3 fold on the inner side. A separate reference makes the model explicit; it does not make a large bend intersection-free.
+
 Meshes are plain NumPy arrays: `V` is `(n, 3)` float and `F` is `(m, 3)` int. Every operator takes `laplacian="uniform"` or `laplacian="cotan"`, and the free or fixed vertices are boolean masks of length `n`.
 
 | Module | Main functions | Book |
@@ -89,12 +101,12 @@ Meshes are plain NumPy arrays: `V` is `(n, 3)` float and `F` is `(m, 3)` int. Ev
 | `fairing.mesh` | generators `grid`, `irregular_grid`, `graded_grid`, `uv_sphere`, `irregular_sphere`, `tube`, `pipe_elbow`; I/O `load_obj`, `save_obj`, `load_mesh`; connectivity `edges`, `adjacency`, `one_rings`, `boundary_vertices`, `edge_face_counts`, `ring_distance`, `k_ring`; damage `add_noise`, `flatten_onto_border_plane` | §3.3.1, §4.3 (k rings) |
 | `fairing.laplacian` | `uniform_laplacian` and `cotan_laplacian`, which return `L, D, M` with `L = D @ M`; `vertex_areas`; `mean_curvature` | Eq. 3.7, 3.10, 3.11, 3.13; App. A.1 |
 | `fairing.smoothing` | `explicit_smoothing`, `explicit_step_limit`, `implicit_smoothing`, `roughness` | §4.2; App. A.1 |
-| `fairing.fairing` | `fairing_matrix`, `solve_fair` | §4.3; Eq. A.2; §A.4 |
+| `fairing.fairing` | `fairing_matrix`, `solve_fair`, `solve_fair_with_reference` | §4.3; Eq. A.2; §A.4 |
 | `fairing.viz` | `plot_mesh`, `compare`, `show_polyscope` | — |
 
 ## Reproduce every figure
 
-Every PNG in `docs/img/` is written by one of seven scripts. Run them from the repository root, inside `.venv`:
+Every PNG in `docs/img/` is written by one of eight scripts. Run them from the repository root, inside `.venv`:
 
 | Script | Figures | Phase note | Needs |
 |---|---|---|---|
@@ -103,6 +115,7 @@ Every PNG in `docs/img/` is written by one of seven scripts. Run them from the r
 | `python examples/03_smoothing.py` | `07-explicit-iters.png`, `07-explicit-unstable.png`, `08-implicit-large-h.png`, `08-uniform-vs-cotan-shapes.png` | [phase 3](docs/phases/phase-3.md) | — |
 | `python examples/04_fairing.py` | `09-sparsity.png`, `10-membrane.png`, `10-two-membranes.png`, `11-tube-k123.png`, `11-profile.png`, `11-elbow-k123.png`, `11-elbow-profiles.png`, `11-elbow-weights.png`, `12-uniform-vs-cotan-fairing.png`, `13-flow-to-fair.png` | [phase 4](docs/phases/phase-4.md) | — |
 | `python examples/04_readme_elbow.py` | `11-elbow-k123-readme.png` | [phase 4](docs/phases/phase-4.md), README opening image | standalone refined render: bend radius 1.25, 192 vertices per ring, spacing 0.025 |
+| `python examples/04_reference_elbow.py` | `11-elbow-k123-reference.png` | [phase 4](docs/phases/phase-4.md), separate reference geometry | same refined comparison, with weights from an aligned straight tube and only the target fixed pipes placed at 90 degrees |
 | `python examples/05_bunny.py` | `14-bunny-before-after.png` | [phase 5](docs/phases/phase-5.md) | the bunny download and `.[mesh]` |
 | `python examples/05_bunny_book_region.py` | `14-bunny-book-region.png` | [phase 5](docs/phases/phase-5.md) | the bunny download and `.[mesh]` |
 
@@ -152,6 +165,7 @@ Each figure is explained in its phase note, under the issue number given here.
 | <img src="docs/img/11-tube-k123.png" width="420" alt="Tube blend for k = 1, 2, 3"> | **#11.** A tube blend for k = 1, 2, 3, colored by mean curvature: a kink at the joints for k = 1, smooth joints for k = 2 and 3. |
 | <img src="docs/img/11-profile.png" width="420" alt="Meridian profiles"> | **#11.** One meridian of the tube blend: k = 1 meets the fixed bands at an angle, while k = 2 and 3 leave them tangentially. |
 | <img src="docs/img/11-elbow-k123.png" width="420" alt="Two pipes at 90 degrees, k = 1, 2, 3"> | **#11.** The setting of Fig. 4.8: two fixed pipes at 90° joined by a free bend, for k = 1, 2, 3. |
+| <img src="docs/img/11-elbow-k123-reference.png" width="420" alt="Three elbow orders with a separate straight reference tube"> | **#11.** The refined README comparison using `solve_fair_with_reference`: straight reference geometry, identical fixed pipes, and inward folds for orders 2 and 3. |
 | <img src="docs/img/11-elbow-profiles.png" width="420" alt="Separate cotangent and uniform elbow-profile panels"> | **#11.** Separate panels show cotangent orders 2 and 3, cotangent order 3 from two initializations, and the uniform result shared by both initializations. Dashed/dotted inputs and solid colored results distinguish the starting shapes from the solutions. |
 | <img src="docs/img/11-elbow-weights.png" width="420" alt="Weights from a straight tube"> | **#11.** Weights frozen from a straight tube instead of the bent start make the inner side of the bend fold into a crease. |
 | <img src="docs/img/12-uniform-vs-cotan-fairing.png" width="420" alt="Uniform vs cotangent thin plate on a graded mesh"> | **#12.** The idea of Fig. 4.9: a thin plate on a mesh of varying density. Uniform weights create bumps where dense bands cross the free disk; cotangent weights reproduce the exact saddle. |
@@ -216,6 +230,7 @@ pip install -e ".[viewer]"
 | `python examples/04_polyscope_fig49.py` | Fig. 4.9 setting (#12): graded mesh, exact surface, uniform and cotangent thin plates, with curvature, error and sideways-slide quantities |
 | `python examples/05_polyscope_bunny.py` | the Stanford bunny (#14): original, damaged inputs and thin-plate refills, with free region and curvature quantities (needs the download above) |
 | `python examples/05_polyscope_bunny_explorer.py` | **interactive explorer** on the bunny: a panel to change the region size, the damage, the order k and the weights; the refill is re-solved at once, with curvature colors, a ghost of the original and live numbers (needs the download above) |
+| `python examples/05_polyscope_bunny_flatten.py` | a hole on the upper back of the full-resolution bunny, from the book's angle: the flattened input, the uniform and the cotangent thin-plate refills side by side, fixed in gray and free in blue, with an orthographic camera (needs the download above) |
 | `python examples/05_polyscope_bunny_book.py` | a hole like the book's Fig. 4.7 on the full-resolution bunny, seen from the book's angle: a panel to show the hole, the damaged input, the refill or the original, and to change the radius, the damage, k and the weights (needs the download above) |
 
 **3. In the window:** drag with the left mouse button to rotate, drag with the right button to pan, and scroll to zoom. The left panel lists the meshes: use the checkboxes to show or hide them, and open a mesh's entry to change its color, edges, or scalar colormap.
