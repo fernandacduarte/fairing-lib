@@ -2,7 +2,8 @@
 
 Run from the repository root:
 
-    python examples/04_lshape_elbow.py
+    python examples/04_lshape_elbow.py                  # L-shaped start
+    python examples/04_lshape_elbow.py --start chamfer  # chamfered start
 
 Uses the dimensions and connectivity of 04_readme_elbow.py, but the free
 region does not start on the quarter torus: each free vertex starts on the
@@ -10,7 +11,7 @@ mitered joint of the two cylinders, i.e. the vertical pipe is extended up to
 the plane x + z = bend_radius and the horizontal pipe is extended back to it,
 meeting at a 90-degree crease. The fairing operator is frozen on this start
 mesh, then solved for k = 1, 2, 3 with cotangent and uniform weights.
-Saves docs/img/11-elbow-lshape-cotan-uniform.png.
+With ``--start chamfer`` the free rings instead start on the straight\nlines between the two joint rings. Saves docs/img/11-elbow-<start>-cotan-uniform.png.
 """
 
 from pathlib import Path
@@ -52,13 +53,31 @@ def lshape_elbow(n_theta=192, radius=1.0, bend_radius=1.25, pipe_length=1.2, spa
     return V, F, free
 
 
-def figure_lshape_elbow():
-    V, F, free = lshape_elbow()
+def chamfer_elbow(n_theta=192, radius=1.0, bend_radius=1.25, pipe_length=1.2, spacing=0.025):
+    """Return ``V, F, free`` with each free ring on the straight line between the
+    two joint rings (the chamfer of examples/04_fairing.py, ``chamfered_start``)."""
+    V, F, free = mesh.pipe_elbow(n_theta=n_theta, radius=radius, bend_radius=bend_radius,
+                                 pipe_length=pipe_length, spacing=spacing)
+    rings = V.reshape(-1, n_theta, 3)
+    b = np.flatnonzero(free.reshape(-1, n_theta)[:, 0])
+    first, last = rings[b[0] - 1].copy(), rings[b[-1] + 1].copy()
+    for i, j in enumerate(b, start=1):
+        t = i / (len(b) + 1)
+        rings[j] = (1 - t) * first + t * last
+    return V, F, free
+
+
+STARTS = {"lshape": (lshape_elbow, "L-shaped (mitered)", "L"),
+          "chamfer": (chamfer_elbow, "chamfered", "chamfer")}
+
+
+def figure_lshape_elbow(start="lshape"):
+    build, long_name, short = STARTS[start]
+    V, F, free = build()
     free_face = free[F].any(axis=1)
     rows = (("cotan", "cotangent"), ("uniform", "uniform"))
     fig = plt.figure(figsize=(18.4, 9.6))
     fig.subplots_adjust(left=0.01, right=0.99, bottom=0.05, top=0.90, wspace=0.02, hspace=0.12)
-    panels = [(V, "initial mesh (L-shaped)")]
     for r, (lap, name) in enumerate(rows):
         for k in (1, 2, 3):
             W = solve_fair(V, F, free, k, laplacian=lap)
@@ -68,14 +87,14 @@ def figure_lshape_elbow():
             ax.set_title(f"{name}, k = {k}", fontsize=12, pad=2)
         ax = fig.add_subplot(2, 4, 4 * r + 1, projection="3d")
         _draw(ax, V, F, free_face, V[~free])
-        ax.set_title(f"start mesh (L), {name} row", fontsize=12, pad=2)
-    fig.suptitle("Fairing two pipes at 90° from an L-shaped (mitered) start: cotangent vs uniform",
+        ax.set_title(f"start mesh ({short}), {name} row", fontsize=12, pad=2)
+    fig.suptitle(f"Fairing two pipes at 90° from a {long_name} start: cotangent vs uniform",
                  fontsize=16, y=0.98)
     fig.text(0.5, 0.015,
              f"{len(V):,} vertices · {len(F):,} triangles · gray: fixed pipes · blue: faired region",
              ha="center", fontsize=10, color="#555555")
     IMG.mkdir(parents=True, exist_ok=True)
-    target = IMG / "11-elbow-lshape-cotan-uniform.png"
+    target = IMG / f"11-elbow-{start}-cotan-uniform.png"
     fig.savefig(target, dpi=150, bbox_inches="tight", facecolor="white")
     plt.close(fig)
     print("saved", target)
@@ -91,4 +110,7 @@ def _draw(ax, W, F, free_face, frame):
 
 
 if __name__ == "__main__":
-    figure_lshape_elbow()
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--start", choices=sorted(STARTS), default="lshape")
+    figure_lshape_elbow(parser.parse_args().start)
