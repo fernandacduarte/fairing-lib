@@ -199,6 +199,16 @@ All fixed positions are preserved exactly. On the refined mesh, the maximum free
 
 Using a quarter torus as the reference is a legitimate choice that encodes a bent reference metric; it should not be confused with a required initial guess. Separating the reference makes this dependence explicit. The straight-tube experiment is an alternative linear model, not a verified reproduction of the undisclosed reference geometry behind the book's Fig. 4.8. The original README image is retained for comparison.
 
+#### Cotangent vs uniform from three start meshes
+
+![Elbow faired from an L-shaped start](../img/11-elbow-lshape-cotan-uniform.png)
+
+![Elbow faired from a chamfered start](../img/11-elbow-chamfer-cotan-uniform.png)
+
+![Elbow faired from a quarter-torus start](../img/11-elbow-torus-cotan-uniform.png)
+
+`examples/04_lshape_elbow.py --start {lshape,chamfer,torus}` keeps the refined README mesh and fixed pipes and only changes where the free rings start: on a sharp mitered L (the two cylinders extended to the plane x + z = 1.25), on the chamfer, or on the quarter torus. Each image solves k = 1, 2, 3 with cotangent weights (top row) and uniform weights (bottom row), both frozen on that start. The uniform rows are identical, since uniform weights ignore positions. The cotangent rows inherit the start: for k = 3 the outer side of the bend reaches 1.718 along the corner diagonal from the L, 1.354 from the torus and 1.092 from the chamfer, against 1.133 for uniform. The k = 1 membrane collapses into a funnel in every case. The torus image's cotangent row is the README's opening figure, which therefore uses cotangent weights.
+
 On the outer side of the bend (θ = π), the joint angle at the vertical pipe, at spacings 0.1 / 0.05 / 0.025, is:
 - k = 1: **70.4° / 70.9° / 71.1°**, a large kink that does not shrink;
 - k = 2: 7.7° / 4.1° / 2.1° (∝ h, C¹);
