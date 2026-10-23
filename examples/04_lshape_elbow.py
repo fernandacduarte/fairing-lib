@@ -4,6 +4,7 @@ Run from the repository root:
 
     python examples/04_lshape_elbow.py                  # L-shaped start
     python examples/04_lshape_elbow.py --start chamfer  # chamfered start
+    python examples/04_lshape_elbow.py --start torus    # quarter-torus start
 
 Uses the dimensions and connectivity of 04_readme_elbow.py, but the free
 region does not start on the quarter torus: each free vertex starts on the
@@ -11,7 +12,7 @@ mitered joint of the two cylinders, i.e. the vertical pipe is extended up to
 the plane x + z = bend_radius and the horizontal pipe is extended back to it,
 meeting at a 90-degree crease. The fairing operator is frozen on this start
 mesh, then solved for k = 1, 2, 3 with cotangent and uniform weights.
-With ``--start chamfer`` the free rings instead start on the straight\nlines between the two joint rings. Saves docs/img/11-elbow-<start>-cotan-uniform.png.
+With ``--start chamfer`` the free rings instead start on the straight\nlines between the two joint rings; with ``--start torus`` they stay on the\nquarter torus of mesh.pipe_elbow. Saves docs/img/11-elbow-<start>-cotan-uniform.png.
 """
 
 from pathlib import Path
@@ -67,7 +68,14 @@ def chamfer_elbow(n_theta=192, radius=1.0, bend_radius=1.25, pipe_length=1.2, sp
     return V, F, free
 
 
-STARTS = {"lshape": (lshape_elbow, "L-shaped (mitered)", "L"),
+def torus_elbow(n_theta=192, radius=1.0, bend_radius=1.25, pipe_length=1.2, spacing=0.025):
+    """Return ``V, F, free`` of mesh.pipe_elbow unchanged: free rings on the quarter torus."""
+    return mesh.pipe_elbow(n_theta=n_theta, radius=radius, bend_radius=bend_radius,
+                           pipe_length=pipe_length, spacing=spacing)
+
+
+STARTS = {"torus": (torus_elbow, "quarter-torus", "torus"),
+          "lshape": (lshape_elbow, "L-shaped (mitered)", "L"),
           "chamfer": (chamfer_elbow, "chamfered", "chamfer")}
 
 
