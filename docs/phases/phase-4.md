@@ -217,6 +217,10 @@ Using a quarter torus as the reference is a legitimate choice that encodes a ben
 
 With cotangent weights frozen on the start, k = 1 pinches the hub down to z = 0.45, while k = 2 and 3 give the smooth tripod of the book, with the hub at 1.03 and 1.13 and no flipped triangles. Uniform weights ignore that the start's edges vary from 0.037 to 0.133, denser near the hub: k = 1 and 2 flatten the hub to z ≈ 0.18, and for k = 3 the hub drops to −0.47 and 4,152 triangles flip, so the top and bottom sheets pass through each other.
 
+![Three pipes faired from a straight start](../img/11-three-pipes-straight-k123.png)
+
+`--start straight` keeps the mesh, the pipes and the connectivity, but replaces the curved patch boundaries by straight segments: each fillet becomes the chord between neighboring pipes, and each quarter ellipse becomes the segment from the crotch to the hub. The start is faceted, with a crease along every patch boundary and at every joint. Cotangent weights frozen on it still give smooth results with no flipped triangles. The result inherits the fuller, flatter start: for k = 3 the hub sits at z = 1.04 instead of 1.13, and the crotch between two pipes lies 1.55 from the center instead of 1.47 (for k = 2: 1.00 and 1.52, against 1.03 and 1.44). The uniform results are the same surfaces as from the smooth start, since the connectivity is the same.
+
 On the outer side of the bend (θ = π), the joint angle at the vertical pipe, at spacings 0.1 / 0.05 / 0.025, is:
 - k = 1: **70.4° / 70.9° / 71.1°**, a large kink that does not shrink;
 - k = 2: 7.7° / 4.1° / 2.1° (∝ h, C¹);

@@ -2,7 +2,8 @@
 
 Run from the repository root:
 
-    python examples/04_three_pipes.py
+    python examples/04_three_pipes.py                    # smooth start
+    python examples/04_three_pipes.py --start straight   # straight start
 
 Three fixed pipes of radius 1 lie in the xy-plane at 120 degrees, pointing up-right,
 up-left and down. The free junction between them starts as a smooth blend: its top
@@ -11,7 +12,11 @@ bounded by the pipe's joint half-ring, two halves of the fillet curves between
 neighboring pipes in the plane z = 0, and two quarter ellipses rising to the hub
 (0, 0, 1). The fairing operator is frozen on this start mesh and solved for k = 1,
 2, 3 with cotangent weights (top row) and uniform weights (bottom row).
-Saves docs/img/11-three-pipes-k123.png.
+With ``--start straight`` the fillets become the straight chords between
+neighboring pipes and the quarter ellipses become straight segments to the hub,
+so the junction starts faceted, with a crease at every joint.
+Saves docs/img/11-three-pipes-k123.png (smooth) or
+docs/img/11-three-pipes-straight-k123.png (straight).
 """
 
 from collections import deque
@@ -82,13 +87,14 @@ def _orient(F):
 
 
 def three_pipes(n_half=48, n_len=32, radius=1.0, joint_distance=2.0, pipe_length=1.5,
-                fillet=1.0):
+                fillet=1.0, straight=False):
     """Return ``V, F, free`` for three pipes at 120 degrees joined by a free junction.
 
     Pipe i has axis direction ``d_i`` (angles 30, 150, 270 degrees), joint ring
     centered at ``joint_distance * d_i`` and ``2 * n_half`` vertices per ring. The
     fillet between neighboring pipes is a cubic Bezier curve in z = 0, tangent to
-    both pipes' sides, with control arms of length ``fillet``.
+    both pipes' sides, with control arms of length ``fillet``. With ``straight``,
+    the fillets and the curves to the hub are straight segments instead.
     """
     angles = np.radians([30.0, 150.0, 270.0])
     d = np.stack([np.cos(angles), np.sin(angles), 0 * angles], 1)
@@ -105,10 +111,15 @@ def three_pipes(n_half=48, n_len=32, radius=1.0, joint_distance=2.0, pipe_length
         P = [c[i] + radius * s[i], c[i] + radius * s[i] - fillet * d[i],
              c[j] - radius * s[j] - fillet * d[j], c[j] - radius * s[j]]
         t = np.asarray(t, float)[:, None]
+        if straight:                                        # the chord across the crotch
+            return (1 - t) * P[0] + t * P[3]
         return ((1 - t) ** 3 * P[0] + 3 * (1 - t) ** 2 * t * P[1]
                 + 3 * (1 - t) * t ** 2 * P[2] + t ** 3 * P[3])
 
     def to_hub(M, phi):                                     # quarter ellipse from M (z = 0) to the hub
+        if straight:                                        # or the straight segment
+            t = (phi / (np.pi / 2))[:, None]
+            return (1 - t) * M + t * radius * EZ
         return np.cos(phi)[:, None] * M + radius * np.sin(phi)[:, None] * EZ
 
     u = np.linspace(0, 1, n_half + 1)
@@ -174,8 +185,13 @@ def three_pipes(n_half=48, n_len=32, radius=1.0, joint_distance=2.0, pipe_length
     return V, F, ~fixed
 
 
-def figure_three_pipes():
-    V, F, free = three_pipes()
+STARTS = {"smooth": (False, "a smooth", "11-three-pipes-k123.png"),
+          "straight": (True, "a straight", "11-three-pipes-straight-k123.png")}
+
+
+def figure_three_pipes(start="smooth"):
+    straight, label, filename = STARTS[start]
+    V, F, free = three_pipes(straight=straight)
     free_face = free[F].any(axis=1)
     fig = plt.figure(figsize=(18.4, 9.6))
     fig.subplots_adjust(left=0.01, right=0.99, bottom=0.05, top=0.90, wspace=0.02, hspace=0.12)
@@ -189,13 +205,13 @@ def figure_three_pipes():
             ax = fig.add_subplot(2, 4, 4 * r + k + 1, projection="3d")
             _draw(ax, W, F, free_face, V[~free])
             ax.set_title(f"{name}, k = {k}", fontsize=12, pad=2)
-    fig.suptitle("Three fixed pipes joined by a free junction, faired with k = 1, 2, 3",
+    fig.suptitle(f"Three fixed pipes joined by a free junction from {label} start, faired with k = 1, 2, 3",
                  fontsize=16, y=0.98)
     fig.text(0.5, 0.015,
              f"{len(V):,} vertices · {len(F):,} triangles · gray: fixed pipes · red: faired region",
              ha="center", fontsize=10, color="#555555")
     IMG.mkdir(parents=True, exist_ok=True)
-    target = IMG / "11-three-pipes-k123.png"
+    target = IMG / filename
     fig.savefig(target, dpi=150, bbox_inches="tight", facecolor="white")
     plt.close(fig)
     print(f"{len(V):,} vertices, {len(F):,} triangles, {free.sum():,} free")
@@ -224,4 +240,7 @@ def _draw(ax, W, F, free_face, frame):
 
 
 if __name__ == "__main__":
-    figure_three_pipes()
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--start", choices=sorted(STARTS), default="smooth")
+    figure_three_pipes(parser.parse_args().start)
