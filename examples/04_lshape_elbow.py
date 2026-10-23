@@ -74,13 +74,13 @@ def torus_elbow(n_theta=192, radius=1.0, bend_radius=1.25, pipe_length=1.2, spac
                            pipe_length=pipe_length, spacing=spacing)
 
 
-STARTS = {"torus": (torus_elbow, "quarter-torus", "torus"),
-          "lshape": (lshape_elbow, "L-shaped (mitered)", "L"),
-          "chamfer": (chamfer_elbow, "chamfered", "chamfer")}
+STARTS = {"torus": (torus_elbow, "quarter-torus", "torus", "11-elbow-torus-cotan-uniform.png"),
+          "lshape": (lshape_elbow, "L-shaped (mitered)", "L", "11-elbow-lshape-cotan-uniform.png"),
+          "chamfer": (chamfer_elbow, "chamfered", "chamfer", "11-elbow-chamfer-cotan-uniform.png")}
 
 
 def figure_lshape_elbow(start="lshape"):
-    build, long_name, short = STARTS[start]
+    build, long_name, short, filename = STARTS[start]
     V, F, free = build()
     free_face = free[F].any(axis=1)
     rows = (("cotan", "cotangent"), ("uniform", "uniform"))
@@ -102,7 +102,7 @@ def figure_lshape_elbow(start="lshape"):
              f"{len(V):,} vertices · {len(F):,} triangles · gray: fixed pipes · blue: faired region",
              ha="center", fontsize=10, color="#555555")
     IMG.mkdir(parents=True, exist_ok=True)
-    target = IMG / f"11-elbow-{start}-cotan-uniform.png"
+    target = IMG / filename
     fig.savefig(target, dpi=150, bbox_inches="tight", facecolor="white")
     plt.close(fig)
     print("saved", target)
