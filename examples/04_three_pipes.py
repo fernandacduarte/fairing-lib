@@ -21,6 +21,8 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.colors import LightSource
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from scipy.spatial import cKDTree
 
 from fairing import viz
@@ -201,9 +203,21 @@ def figure_three_pipes():
 
 
 def _draw(ax, W, F, free_face, frame):
-    for faces, color in ((F[~free_face], "#d9d8d4"), (F[free_face], "#c8372d")):
-        ax.plot_trisurf(W[:, 0], W[:, 1], W[:, 2], triangles=faces, color=color,
-                        shade=True, linewidth=0, antialiased=False)
+    """Draw fixed and free triangles as one collection, shaded like ``plot_trisurf``.
+
+    Matplotlib depth-sorts triangles only within a collection and paints whole
+    collections one after the other. With the gray and red parts in two
+    ``plot_trisurf`` calls, the back wall of each gray pipe was painted over the
+    red junction, which looked like a dark gap at every joint.
+    """
+    T = W[F]
+    normals = np.cross(T[:, 1] - T[:, 0], T[:, 2] - T[:, 0])
+    normals /= np.linalg.norm(normals, axis=1, keepdims=True)
+    base = np.where(free_face[:, None], matplotlib.colors.to_rgb("#c8372d"),
+                    matplotlib.colors.to_rgb("#d9d8d4"))
+    shade = LightSource(azdeg=225, altdeg=19.4712).shade_normals(normals, fraction=1.0)
+    colors = base * (0.3 + 0.7 * shade[:, None])            # matplotlib's own shading mix
+    ax.add_collection3d(Poly3DCollection(T, facecolors=colors, linewidths=0, antialiased=False))
     viz._set_equal_aspect(ax, frame)
     ax.view_init(70, -90)
     ax.set_axis_off()
