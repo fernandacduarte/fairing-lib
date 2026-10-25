@@ -106,7 +106,7 @@ Meshes are plain NumPy arrays: `V` is `(n, 3)` float and `F` is `(m, 3)` int. Ev
 
 ## Reproduce every figure
 
-Every PNG in `docs/img/` is written by one of eight scripts. Run them from the repository root, inside `.venv`:
+Every PNG in `docs/img/` is written by one of ten scripts. Run them from the repository root, inside `.venv`:
 
 | Script | Figures | Phase note | Needs |
 |---|---|---|---|
@@ -119,6 +119,7 @@ Every PNG in `docs/img/` is written by one of eight scripts. Run them from the r
 | `python examples/04_lshape_elbow.py --start {lshape,chamfer,torus}` | `11-elbow-lshape-cotan-uniform.png`, `11-elbow-chamfer-cotan-uniform.png`, `11-elbow-torus-cotan-uniform.png` | [phase 4](docs/phases/phase-4.md), start-mesh comparison | same refined elbow, cotangent vs uniform weights for k = 1, 2, 3 from an L-shaped, chamfered or quarter-torus start |
 | `python examples/05_bunny.py` | `14-bunny-before-after.png` | [phase 5](docs/phases/phase-5.md) | the bunny download and `.[mesh]` |
 | `python examples/05_bunny_book_region.py` | `14-bunny-book-region.png` | [phase 5](docs/phases/phase-5.md) | the bunny download and `.[mesh]` |
+| `python examples/05_bunny_back_region.py` | `14-bunny-back-region.png` | [phase 5](docs/phases/phase-5.md) | the bunny download and `.[mesh]` |
 
 The scripts overwrite the committed PNGs, and the bunny scripts also print the numbers quoted in the phase-5 note. The README image is generated independently on a finer mesh than the phase-4 gallery figures, so it takes longer to solve and render. To check the result, run `git status docs/img`. PNG bytes can differ with dependency versions and rendering backends, so compare the images visually when they change.
 
@@ -181,6 +182,7 @@ Each figure is explained in its phase note, under the issue number given here.
 |---|---|
 | <img src="docs/img/14-bunny-before-after.png" width="420" alt="Refilling a damaged region of the bunny"> | **#14.** A damaged region of the Stanford bunny refilled with a thin plate. The uniform refill ignores how the region starts; the cotangent refill inherits it. |
 | <img src="docs/img/14-bunny-book-region.png" width="420" alt="A hole like the book's Fig. 4.7, refilled"> | **#14.** A hole like the one in Fig. 4.7, on the full-resolution bunny, filled with a smooth thin-plate patch. |
+| <img src="docs/img/14-bunny-back-region.png" width="420" alt="A hole on the bunny's upper back, refilled"> | **#14.** A larger hole on the upper back, outlined by hand on a picture and wrapping over the back. The thin plate fills it with a smooth patch that sits slightly below the original curve. |
 
 ## Study notes
 
@@ -204,15 +206,16 @@ curl -L -o data/bunny.tar.gz https://graphics.stanford.edu/pub/3Dscanrep/bunny.t
 tar -xzf data/bunny.tar.gz -C data bunny/reconstruction
 ```
 
-The examples read the bunny with `trimesh`. `examples/05_bunny.py` uses `data/bunny/reconstruction/bun_zipper_res2.ply` (a decimated version with about 8k vertices). `examples/05_bunny_book_region.py`, a hole like the book's Fig. 4.7, uses the full-resolution `bun_zipper.ply` (about 35k vertices) from the same download:
+The examples read the bunny with `trimesh`. `examples/05_bunny.py` uses `data/bunny/reconstruction/bun_zipper_res2.ply` (a decimated version with about 8k vertices). `examples/05_bunny_book_region.py`, a hole like the book's Fig. 4.7, and `examples/05_bunny_back_region.py`, a hole on the upper back, use the full-resolution `bun_zipper.ply` (about 35k vertices) from the same download:
 
 ```bash
 pip install -e ".[mesh]"
 python examples/05_bunny.py
 python examples/05_bunny_book_region.py
+python examples/05_bunny_back_region.py
 ```
 
-The tests do not need the download: the two tests that use the bunny are skipped when the files are missing. The test of `load_mesh` needs `trimesh` and is skipped without the `mesh` extra.
+The tests do not need the download: the three tests that use the bunny are skipped when the files are missing. The test of `load_mesh` needs `trimesh` and is skipped without the `mesh` extra.
 
 ## Viewing meshes interactively with polyscope
 

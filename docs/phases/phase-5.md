@@ -42,6 +42,7 @@ Tests (`tests/test_fairing.py`, `tests/test_mesh.py`). A sphere stands in for th
 - `edge_face_counts` detects boundary and non-manifold edges, `load_mesh` drops unused vertices, and `flatten_onto_border_plane` makes the free vertices coplanar without moving the fixed ones;
 - the bunny region's clearance from problem edges, run only when the bunny is downloaded.
 - the Fig. 4.7-like region (below) is a disk at least k + 1 rings from the full-resolution bunny's boundary edges, run only when the bunny is downloaded.
+- the upper-back region (below) is too, under the same condition.
 
 **What the figures show.**
 
@@ -93,10 +94,37 @@ What the comparison shows:
 
 `examples/05_polyscope_bunny_book.py` opens the same bunny in polyscope, from the book's angle. By default it shows the refill in plain gray with the green border, as in the book. A panel switches between the hole, the damaged input, the refill and the original; changes the radius (0.015–0.045, always a disk), the damage, the order k and the weights; and colors by the free region or by mean curvature.
 
+### A hole on the upper back, outlined by hand
+
+The book-like hole sits on the side of the haunch, facing the camera. `examples/05_bunny_back_region.py` frees a region that was outlined by hand on a picture of the bunny, seen from about the same angle: the top of the haunch, from the middle of the back to the rear silhouette. It is larger than the book-like hole, and it wraps over the back.
+
+**From an outline to vertices.** A drawing is 2D, but the solver needs a set of vertices. We first matched the picture's silhouette to the mesh's, seen orthographically from matplotlib's `view_init(16, -62)`; the two silhouettes overlap with an IoU of 0.89. We then collected the vertices that are visible inside the outline and searched for the ball (a center on the surface and a radius) that covers them best. This matching was a one-off step, done outside the repository: the script stores only its result, a center near (0.027, −0.011, 0.123) and a radius of 0.04, which covers 89% of the outlined vertices seen from that angle. `book_region` builds the region from them, as above: 3418 vertices, a disk, at least 41 rings from the boundary edges. Being a ball, the region also continues a little past the silhouette, onto the part of the back that the picture cannot show.
+
+| refill (k = 2) | max distance to the original | mean offset along the normal | mean \|H\| on the region |
+|---|---|---|---|
+| (original, for reference) | — | — | 44 |
+| uniform, from the noisy start | 0.0071 | −0.0014 | 28 |
+| uniform, from the flattened start | 0.0071 (identical: difference exactly 0) | −0.0014 | 28 |
+| cotangent, from the noisy start | 0.0067 | −0.0016 | **55** |
+| cotangent, from the flattened start | 0.0069 | **−0.0026** | **27** |
+
+The offset is measured along the original's vertex normals; a negative value means the patch lies below the original surface. The two cotangent refills differ by up to 0.0078 (5 edges).
+
+What this region adds:
+- **A thin plate flattens a dome.** This region is a cap: the back curves down on every side of it. Every refill lies below the original on average, by 1–2 edges, and the largest displacement reaches about 5 edges (0.0067–0.0071), almost twice that of the book-like hole. The reason is that Δ²x = 0 does not reproduce a sphere. On a sphere, Δx = −2Hn, and the normal n changes from point to point, so Δ²x ≠ 0. A thin plate therefore pulls a curved cap toward a flatter surface, and the effect grows with the hole's size and curvature.
+- **The conclusions about the weights still hold.** Uniform weights ignore the start (difference exactly 0). Cotangent weights inherit it: the refill is rough from the noisy start (55, above the original's 44) and the smoothest from the flattened start (27). That smoothest refill also sinks the deepest (−0.0026, almost twice the uniform −0.0014), and its weights come from the flat lid, not from the dome.
+
+![A hole on the bunny's upper back, refilled](../img/14-bunny-back-region.png)
+
+`docs/img/14-bunny-back-region.png`, in three groups of three panels. All panels use the picture's angle (16, −62), except the top right one, which looks along the region's mean normal (55, 1), because the picture's angle sees the region at a grazing angle.
+- The first group, set apart by a line, shows only the original bunny. It shows the hole (the region's triangles removed, with the ring of faces around it in green, so the inside of the bunny shows through), the free region in blue, and the same region face on, with its scan bumps.
+- Each of the other two groups is one start, laid out the same way: damaged input, uniform refill, cotangent refill. The first is the noisy start; the second is the flattened start, a flat lid that cuts below the back's curve.
+
 **Pitfalls.**
 - *Check the mesh before trusting the operators.* Real data can be non-manifold, especially after decimation. Our `boundary_vertices` counts an edge as interior unless exactly one triangle uses it, so a non-manifold edge would silently pass. `edge_face_counts` makes the problem visible, and keeping k + 1 rings away from it makes it irrelevant for the solve.
 - *The start matters for cotangent weights.* With the book's linear method, how the region is initialized decides the result when the weights are cotangent: a crude but clean patch (flattening) works far better than a noisy one. Uniform weights avoid the question, at the price of sampling artifacts on irregular meshes (#12); on this region they gave a smooth result.
 - *File orientation.* The bunny files are y-up; the example rotates them to z-up for matplotlib's 3D axes.
+- *Matplotlib sorts by depth only within a collection.* `examples/05_bunny.py` and `examples/05_bunny_book_region.py` draw the fixed and the free faces as two `plot_trisurf` collections. Matplotlib sorts the triangles by depth inside each collection, but then draws whole collections one over the other. That works when the region faces the camera. On the upper back, though, the gray collection hid the blue region where it wraps over the back. `examples/05_bunny_back_region.py` therefore puts all faces in one `Poly3DCollection`, with per-face colors and the same shading as `plot_trisurf`.
 
 ## #15 Final documentation
 

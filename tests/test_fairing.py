@@ -398,3 +398,16 @@ def test_book_like_hole_is_a_disk_clear_of_the_boundary():
     assert euler == 1 and clearance >= 3
     assert 2000 < free.sum() < 3500
 
+
+@pytest.mark.skipif(not FULL_BUNNY.exists(), reason="the Stanford bunny is not downloaded (see README)")
+def test_upper_back_hole_is_a_disk_clear_of_the_boundary():
+    # The hand-outlined hole of examples/05_bunny_back_region.py, on the upper back: also a
+    # disk at least k + 1 = 3 rings from the full-resolution bunny's boundary edges.
+    pytest.importorskip("trimesh")
+    import runpy
+    back = runpy.run_path(str(BUNNY.parents[3] / "examples" / "05_bunny_back_region.py"), run_name="back")
+    V, F = back["helpers"]["load_bunny"](FULL_BUNNY)
+    free, euler, clearance = back["book"]["book_region"](V, F, back["RADIUS"], back["TARGET"])
+    assert euler == 1 and clearance >= 3
+    assert 3000 < free.sum() < 4000
+

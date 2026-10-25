@@ -9,13 +9,14 @@
 - [x] Phase 5: #14 bunny hole filling, with a Fig. 4.7-like hole (PR #31), #15 README, gallery, notes review (PR #32). **The plan is complete.**
 - [x] Follow-up: #33 stricter citation test, which checks the cited statement (PR #34)
 - [x] Follow-up: three-panel elbow-profile comparison with explicit cotangent/uniform labels and a dedicated regeneration command.
+- [x] Follow-up: a hand-outlined hole on the bunny's upper back (`examples/05_bunny_back_region.py`), refilled with a thin plate; the outline was matched to the mesh once, and the script stores the fitted ball.
 
 ## Next
 - Nothing planned. Moonshot M1 (#16, mixed Voronoi area): only if the user asks.
 
 ## Decisions
 - **Issue #N = plan step N**; figures are `docs/img/<NN>-<name>.png`; the README's table says which script writes which figure.
-- **Environment:** `.venv`, Python 3.11, `pip install -e ".[dev,mesh,viewer]"`; CI uses 3.11 with `.[dev,mesh]` (no bunny: its 2 tests skip). polyscope only in `examples/*polyscope*.py`, never in tests.
+- **Environment:** `.venv`, Python 3.11, `pip install -e ".[dev,mesh,viewer]"`; CI uses 3.11 with `.[dev,mesh]` (no bunny: its 3 tests skip). polyscope only in `examples/*polyscope*.py`, never in tests.
 - **Data:** plain arrays `V` (n, 3), `F` (m, 3); masks are boolean; topology helpers in `fairing/mesh.py` (rings by BFS, `ring_distance`/`k_ring`). One diagonal per quad: interior valence 6, k-rings of 1 + 3k(k+1) vertices.
 - **Laplacians return `(L, D, M)`** with `L = D @ M`, M symmetric; `laplacian="uniform" | "cotan"`; barycentric areas (M1 would add mixed Voronoi).
 - **Smoothing:** explicit rebuilds L every step by default (`rebuild=False` keeps it fixed, #13); `explicit_step_limit` = 2/(λ|μ_min|) via `eigsh`. Implicit solves the symmetric (D⁻¹ − hλM)x' = D⁻¹x with SciPy's LU (`factorized`), on purpose.
@@ -33,5 +34,6 @@
 - `bun_zipper_res2` is non-manifold: keep free regions ≥ k + 1 rings from problem edges (`edge_face_counts`).
 - C^(k−1) is tested by refinement (the joint angle stays finite, ∝ h, ∝ h²), never at one resolution.
 - matplotlib surfaces are unlit, and face colors average away single-vertex outliers: use numbers for quantitative claims.
+- matplotlib sorts faces by depth only within one collection: a region that wraps out of view needs fixed and free faces in one `Poly3DCollection` (#14 upper-back hole).
 - After editing code, run `pytest tests/test_docs.py`: it names the new line of every cited statement that moved; update N in the note.
 - §A.4 writes Cholesky as LLᵀ: that L is the triangular factor, not the Laplacian.
