@@ -42,7 +42,9 @@ Tests (`tests/test_fairing.py`, `tests/test_mesh.py`). A sphere stands in for th
 - `edge_face_counts` detects boundary and non-manifold edges, `load_mesh` drops unused vertices, and `flatten_onto_border_plane` makes the free vertices coplanar without moving the fixed ones;
 - the bunny region's clearance from problem edges, run only when the bunny is downloaded.
 - the Fig. 4.7-like region (below) is a disk at least k + 1 rings from the full-resolution bunny's boundary edges, run only when the bunny is downloaded.
-- the upper-back region (below) is too, under the same condition.
+- the upper-back region (below) is too, under the same condition;
+- so is the second real hole's region (below), under the same condition;
+- hole filling (below), on a sphere with a cap cut out: the patch is built without the removed positions (setting them to NaN changes nothing), it closes the hole without gaps or seams and with the original topology, the fixed vertices stay put, and the free rows' residual vanishes. Skipped without the `hole` extra.
 
 **What the figures show.**
 
@@ -67,7 +69,7 @@ The region above is small (a 6-ring, 158 vertices) because the decimated bunny h
 - *Region* (`book_region`): the vertices within a distance 0.035 of a haunch vertex (the one closest to a point picked by eye from the figure), keeping the connected piece that contains it. That gives 2660 vertices, forming a disk (Euler characteristic 1).
 - *Camera:* matplotlib's `view_init(15, -60)`, matched by eye to the figure (head left, haunch right).
 - *Damage and refill:* as above, noise (σ = half an edge) or flattening, then k = 2 with uniform or cotangent weights.
-- *Our hole keeps its triangles.* We discard the free vertices' positions but keep the original connectivity. A real hole has no vertices inside, so filling it first needs a triangulation of the hole, which is the topic of Ch. 8. Here we test only the fairing step.
+- *Our hole keeps its triangles.* We discard the free vertices' positions but keep the original connectivity. A real hole has no vertices inside, so filling it first needs a triangulation of the hole, which is the topic of Ch. 8. Here we test only the fairing step; the last subsection below builds a new triangulation for a real hole.
 
 | refill (k = 2) | max distance to the original | mean \|H\| on the region |
 |---|---|---|
@@ -120,10 +122,130 @@ What this region adds:
 - The first group, set apart by a line, shows only the original bunny. It shows the hole (the region's triangles removed, with the ring of faces around it in green, so the inside of the bunny shows through), the free region in blue, and the same region face on, with its scan bumps.
 - Each of the other two groups is one start, laid out the same way: damaged input, uniform refill, cotangent refill. The first is the noisy start; the second is the flattened start, a flat lid that cuts below the back's curve.
 
+### A real hole: build a patch, then fair it
+
+All the regions above keep their triangles: the damage replaces the free vertices' positions, but the original connectivity stays. `examples/05_bunny_hole_filling.py` makes a **real hole** in the upper-back region and fills it in two separate steps. Patch construction supplies the triangulation; fairing computes a smooth shape for its interior.
+
+**1. Cut the hole.** Every face with a free vertex is removed, and so are the 3418 free vertices themselves (7032 triangles in all). The surviving mesh has 31416 vertices and 62419 triangles. Its new boundary loop has 198 vertices, exactly the region's first fixed ring. The bunny's 5 other boundary loops (the holes in its base) are unchanged. The script checks all three facts, and it keeps an untouched copy of the bunny for the figures and the evaluation only.
+
+**2. Build a replacement patch from the boundary alone.** The book leaves this step to Ch. 8, so the method is ours, kept deliberately simple:
+- *Fit a plane* to the loop's 198 vertices (least squares through their centroid), with its normal on the side of the surviving faces. The loop is not planar: it lies up to 0.0058 (4.5 edges) from the plane, 1.4 edges on average.
+- *Project the loop* into the plane's 2D coordinates and check that it is a simple polygon: no repeated vertex, no two non-adjacent edges that touch or cross, nonzero area.
+- *Triangulate the polygon* with a constrained Delaunay triangulation, using Shewchuk's Triangle through the `triangle` package (the optional `hole` extra: `pip install -e ".[hole]"`). The loop's edges are segments; `Y` forbids new vertices on them, so the loop's vertices and edges are kept as they are; `q30` asks for angles of at least 30°; and `a` caps each triangle's area at that of an equilateral triangle whose side is the loop's mean edge length, h = 0.00131. The sampling density therefore comes from the surviving boundary, not from the removed interior.
+- *Initialize* the 4064 new interior vertices on the fitted plane. The loop's corners are the surviving mesh's own vertices, so they keep their exact 3D positions and are not duplicated. The boundary is not planar, so this is an approximately planar interior initialization, with the original 3D boundary preserved.
+- *Attach* the 8324 new triangles, oriented against the hole's boundary half-edges, so the orientation stays consistent.
+
+The removed interior positions and triangles are never read: the script sets the removed positions to NaN, rebuilds the hole, the patch and both fairings, and gets bit-identical arrays.
+
+**3. Fair the interior.** Only the 4064 new vertices are free; the surviving bunny, including the loop and the rings around it, stays fixed. Both solves use the same initialized mesh, connectivity and free mask: `solve_fair(V_init, F_new, free_new, 2, laplacian=...)`, with uniform or cotangent weights frozen from `V_init`, the planar patch and the surviving mesh around it. No reference geometry is taken from the original bunny.
+
+**Checks** (printed by the script):
+
+| Check | Result |
+|---|---|
+| the filled mesh | 35480 vertices, 70743 triangles, the same Euler characteristic as the original (−3) |
+| the patch uses the loop's vertices and no other surviving vertex | yes; the nearest new vertex is 0.65 h from the loop |
+| gaps, seams, non-manifold edges | none: the only open edges are the bunny's own 223 |
+| orientation | consistent: no half-edge appears twice |
+| initial triangles | coordinates finite; smallest area 0.34 of an equilateral triangle of side h; smallest angle 7.8°, in triangles that touch the loop, where it rises out of the plane; inside the patch, every angle is at least 30° |
+| fixed vertices after fairing | bit-identical to the input, for both weightings |
+| relative residual of the free rows, with the matrix `fairing_matrix(V_init, F_new, 2, ...)` that the solve froze | 4.4 × 10⁻¹⁵ (uniform), 8.5 × 10⁻¹⁵ (cotangent) |
+
+**Comparison with the original.** The patch has a different number of vertices than the removed region and no vertex correspondence, so we do not compare coordinates. We measure surface distances instead: from the vertices and face centroids of the patch to the original removed triangles (exact point-to-triangle distances), and back.
+
+| patch (k = 2) | mean distance to the original | max distance (either way) | mean signed offset | mean \|H\| on the patch |
+|---|---|---|---|---|
+| (original removed region, for reference) | — | — | — | 44 |
+| initial planar patch | 0.0089 (6.8 h) | 0.0202 | −0.0089 | — |
+| uniform | **0.0016** (1.2 h) | 0.0055 | −0.0016 | 30 |
+| cotangent | 0.0026 (2.0 h) | 0.0077 | −0.0025 | **25** |
+
+The two faired patches differ by up to 0.0052 (4 edges).
+
+What this shows:
+- **Fairing turns a flat lid into a smooth cap.** From a patch about 7 edges below the original on average, both thin plates rise to within 1–2 edges of it, joining the surviving surface tangentially.
+- **The same results as the flattened start, now with new connectivity.** The offsets (−0.0016 uniform, −0.0025 cotangent) are close to those of the flattened start on the same region with its original triangles (−0.0014 and −0.0026). Again, the cotangent patch is the smoother one and sinks deeper, its weights frozen from a flat lid, and both lie below the dome, as a thin plate does on a curved cap.
+- **No scan detail comes back.** As in every refill above, the thin plate replaces the bumps with the smoothest surface that fits the border.
+
+![Hole filling: construct a patch, then fair it](../img/14-bunny-hole-filling-stages.png)
+
+`docs/img/14-bunny-hole-filling-stages.png`. Top row: the whole bunny from the picture's angle (16, −62). Bottom row: close-ups at (32, −28), all with one frame. From left to right: the original with the selected region in light purple; the actual hole, with the loop in green (the inside of the bunny shows through); the initial patch, with its triangles drawn; and the cotangent thin plate. Gray is the fixed surviving surface, blue the replacement patch.
+
+![Hole filling stages, faired bunny all gray](../img/14-bunny-hole-filling-stages-gray.png)
+
+`docs/img/14-bunny-hole-filling-stages-gray.png` is the same figure, except that the faired bunny in panel 4 is drawn all gray, as in the book's Fig. 4.7 (right): there, the patch is not told apart from the rest of the surface.
+
+![Same initial patch, different weights](../img/14-bunny-hole-filling-weights.png)
+
+`docs/img/14-bunny-hole-filling-weights.png`. One column per mesh: the shared initial patch, the uniform thin plate (orange labels) and the cotangent one (teal labels). Row 1 shows close-ups at an angle; row 2 shows the same close-ups face on, with the triangles drawn. Row 3 is a cross-section at true scale, through the loop's centroid, along its longest direction and the fitted normal. It shows the original surface (thick, light purple), the surviving surface (gray), the planar start, and both thin plates: the uniform one stays closer to the original dome.
+
+### A second real hole, on the upper rear of the back
+
+`examples/05_bunny_hole_filling_rear.py` repeats the experiment above on a different hole, to see how the result changes. The method is the same, and the script reuses the functions of `examples/05_bunny_hole_filling.py` without changing them; only the region, the close-up camera and the figure are new.
+
+**The region.** It was outlined by hand (a pink lens) on a picture of the bunny, head left: the upper rear of the back, up to the silhouette. As for the upper-back region, the outline was matched to the mesh once, outside the repository. The picture's silhouette matches the mesh's seen orthographically from (10, −61), with an IoU of 0.90. The faces visible inside the outline give 766 vertices. The ball that matches them best has its center near (0.0275, −0.0041, 0.1212) and a radius of 0.022; its region covers 97% of them, with an IoU of 0.93 on the visible vertices. `book_region` builds the region from that ball: 1063 vertices, a disk, at least 51 rings from the boundary edges. It lies entirely inside the first hole's region: it is that region's upper rear part, about a third of its size. A test checks that the region is a disk clear of the boundary, when the bunny is present.
+
+**The hole and the patch.** Removing the region leaves 33771 vertices and 67186 triangles, and a loop of 141 vertices with mean edge h = 0.00118. This loop is much closer to planar than the first one: at most 0.0022 (1.8 h) from its fitted plane, 0.5 h on average. The patch has 1880 new interior vertices and 3899 triangles. The filled mesh has 35651 vertices and 71085 triangles, with the original Euler characteristic (−3). All the checks of the first hole pass again: the patch is rebuilt identically with the removed positions set to NaN; it reuses the loop's own vertices (the nearest new vertex is 0.60 h away); there are no gaps, seams or non-manifold edges; and the orientation is consistent. The smallest area is 0.34 of an equilateral triangle of side h. The smallest angle is 23.6°, much better than the first hole's 7.8°, because the loop rises less out of the plane. After fairing, the fixed vertices are bit-identical, and the relative residuals are 3.1 × 10⁻¹⁵ (uniform) and 3.2 × 10⁻¹⁵ (cotangent).
+
+| patch (k = 2) | mean distance to the original | max distance (either way) | mean signed offset | mean \|H\| on the patch |
+|---|---|---|---|---|
+| (original removed region, for reference) | — | — | — | 39 |
+| initial planar patch | 0.0030 (2.5 h) | 0.0060 | −0.0030 | — |
+| uniform | 0.0007 (0.6 h) | 0.0019 | +0.0007 | 30 |
+| cotangent | **0.0002** (0.1 h) | **0.0008** | −0.0000 | **24** |
+
+The two faired patches differ by up to 0.0033 (2.8 edges).
+
+What the second hole adds:
+- **A smaller, flatter hole is filled almost exactly.** The cotangent thin plate lies on average 0.1 edge from the removed surface, and at most 0.7 edge. For the first hole, the mean distance was 2 edges. The thin plate replaces the region with the smoothest surface that fits its border, and the closer the original is to such a surface, the closer the patch comes to it.
+- **The weights now rank the other way.** On the first hole, the uniform patch was closer to the original; here, the cotangent one is, by a factor of 3, and it no longer sinks below the original (offset −0.0000, against +0.0007 for the uniform patch). The comparison between the weights therefore depends on the hole, so neither weighting is better in general.
+
+![A second real hole, on the upper rear of the back](../img/14-bunny-hole-filling-rear-stages-gray.png)
+
+`docs/img/14-bunny-hole-filling-rear-stages-gray.png`, laid out like `14-bunny-hole-filling-stages-gray.png`. The top row uses the same camera as the first hole (16, −62), so the two figures can be compared. The bottom row shows close-ups from (40, −35), all with one frame. From left to right: the original with the region in light purple; the actual hole, with its loop in green; the initial patch, with its triangles drawn; and the cotangent thin plate, all gray, as in the book's Fig. 4.7.
+
+![The second hole: same initial patch, different weights](../img/14-bunny-hole-filling-rear-weights.png)
+
+`docs/img/14-bunny-hole-filling-rear-weights.png`, laid out like `14-bunny-hole-filling-weights.png`: the shared initial patch, the uniform thin plate (orange labels) and the cotangent one (teal labels), at an angle and face on with the triangles drawn, and a cross-section at true scale. In the cross-section, the cotangent patch lies almost on the original surface, and the uniform patch bulges slightly above it. That is the opposite of the first hole, where both patches sank below the original and the uniform one stayed closer to it.
+
+### The second hole, a little larger
+
+`python examples/05_bunny_hole_filling_rear.py --larger` repeats the second hole with the same center and a larger ball: radius 0.028 instead of 0.022. The region grows from 1063 to 1715 vertices (a disk, at least 47 rings from the boundary edges), still inside the first hole's region, about half its size. Everything else is the same: the method, the checks and the figures.
+
+**The hole and the patch.** The loop has 154 vertices with mean edge h = 0.00126, at most 0.0035 (2.8 h) from its fitted plane, 0.8 h on average. The patch has 2537 new interior vertices and 5226 triangles; the filled mesh has 35656 vertices and 71085 triangles, with the original Euler characteristic (−3). All the checks pass again: the rebuild with NaN positions is identical, the patch reuses the loop's own vertices (the nearest new vertex is 0.59 h away), there are no gaps, seams or non-manifold edges, and the orientation is consistent. The smallest area is 0.34 of an equilateral triangle of side h and the smallest angle 15.5°, between those of the two other holes, as is the loop's distance from its plane. After fairing, the fixed vertices are bit-identical, and the relative residuals are 3.8 × 10⁻¹⁵ (uniform) and 4.8 × 10⁻¹⁵ (cotangent).
+
+| patch (k = 2) | mean distance to the original | max distance (either way) | mean signed offset | mean \|H\| on the patch |
+|---|---|---|---|---|
+| (original removed region, for reference) | — | — | — | 41 |
+| initial planar patch | 0.0049 (3.9 h) | 0.0099 | −0.0049 | — |
+| uniform | 0.0004 (0.3 h) | 0.0013 | +0.0002 | 31 |
+| cotangent | **0.0003** (0.2 h) | **0.0011** | −0.0002 | **26** |
+
+The two faired patches differ by up to 0.0038 (3.0 edges).
+
+What the larger hole shows:
+- **Both patches still match the original closely.** On average they lie 0.2–0.3 edge from the removed surface, and at most about one edge. The region is larger, but this part of the back is still close to the smooth surface that a thin plate produces.
+- **The two weightings are now almost tied.** The cotangent patch is still slightly closer and smoother, and the uniform patch still bulges slightly above the original (+0.0002), but the gap between them is much smaller than for the outlined hole. Together with the first hole, where the uniform patch was closer, this shows again that the comparison depends on the hole.
+
+![The second hole, larger: stages](../img/14-bunny-hole-filling-rear-large-stages-gray.png)
+
+`docs/img/14-bunny-hole-filling-rear-large-stages-gray.png`, laid out like `14-bunny-hole-filling-rear-stages-gray.png`, with the same cameras. The close-ups crop a slightly larger area, to fit the larger hole.
+
+![The second hole, larger: same initial patch, different weights](../img/14-bunny-hole-filling-rear-large-weights.png)
+
+`docs/img/14-bunny-hole-filling-rear-large-weights.png`, laid out like `14-bunny-hole-filling-rear-weights.png`. In the cross-section, both patches follow the original surface; the uniform one is slightly above it and the cotangent one slightly below.
+
+![The larger second hole: weights comparison for a slide](../img/14-bunny-hole-filling-rear-large-weights-slide.png)
+
+`docs/img/14-bunny-hole-filling-rear-large-weights-slide.png` is the same comparison, laid out for a landscape slide. The face-on wireframes are left out: the oblique views show the change of shape, and the cross-section shows how the two weightings differ. A white dotted line on each view marks where the section is taken. The section is enlarged and drawn with equal horizontal and vertical scales. Its coordinates are in the bunny file's own units, which the data does not document. The original surface is labeled "reference only": it was removed, and the patch is built and solved without it (the NaN rebuild checks this). The figure supports one conclusion: both weightings produce a curved fill, but with different profiles, from the same initial patch and constraints. It does not show that one weighting is better.
+
 **Pitfalls.**
 - *Check the mesh before trusting the operators.* Real data can be non-manifold, especially after decimation. Our `boundary_vertices` counts an edge as interior unless exactly one triangle uses it, so a non-manifold edge would silently pass. `edge_face_counts` makes the problem visible, and keeping k + 1 rings away from it makes it irrelevant for the solve.
 - *The start matters for cotangent weights.* With the book's linear method, how the region is initialized decides the result when the weights are cotangent: a crude but clean patch (flattening) works far better than a noisy one. Uniform weights avoid the question, at the price of sampling artifacts on irregular meshes (#12); on this region they gave a smooth result.
 - *File orientation.* The bunny files are y-up; the example rotates them to z-up for matplotlib's 3D axes.
+- *A planar initialization only works for a hole that projects to a simple polygon.* This loop does, but a hole that wraps further around a curved part would fold over itself in the plane. `check_simple_polygon` refuses such a loop instead of producing overlapping triangles; it would need a different parametrization (Ch. 8).
+- *The quality bound cannot hold next to a non-planar boundary.* Triangle guarantees 30° in the plane, but the loop's vertices return to their 3D positions, up to 4.5 edges off the plane, so the triangles that touch the loop are tilted and stretched (smallest angle 7.8°). Fairing does not move those boundary vertices; it only moves the interior.
+- *Triangle's license.* The `triangle` package wraps Shewchuk's Triangle, which is free for research use but needs a license for commercial use, like the bunny itself. It is an optional extra, used only by this example and its test.
 - *Matplotlib sorts by depth only within a collection.* `examples/05_bunny.py` and `examples/05_bunny_book_region.py` draw the fixed and the free faces as two `plot_trisurf` collections. Matplotlib sorts the triangles by depth inside each collection, but then draws whole collections one over the other. That works when the region faces the camera. On the upper back, though, the gray collection hid the blue region where it wraps over the back. `examples/05_bunny_back_region.py` therefore puts all faces in one `Poly3DCollection`, with per-face colors and the same shading as `plot_trisurf`.
 
 ## #15 Final documentation

@@ -65,6 +65,7 @@ pytest
 |---|---|---|
 | `dev` | `pytest` | the tests |
 | `mesh` | `trimesh` | reading the Stanford bunny (Phase 5) and the `load_mesh` test |
+| `hole` | `triangle` | the constrained triangulation of `examples/05_bunny_hole_filling.py` and its test |
 | `viewer` | `polyscope` | the interactive viewers (optional; never used by the tests) |
 
 ## Quick start
@@ -106,7 +107,7 @@ Meshes are plain NumPy arrays: `V` is `(n, 3)` float and `F` is `(m, 3)` int. Ev
 
 ## Reproduce every figure
 
-Every PNG in `docs/img/` is written by one of ten scripts. Run them from the repository root, inside `.venv`:
+Every PNG in `docs/img/` is written by one of twelve scripts. Run them from the repository root, inside `.venv`:
 
 | Script | Figures | Phase note | Needs |
 |---|---|---|---|
@@ -120,6 +121,9 @@ Every PNG in `docs/img/` is written by one of ten scripts. Run them from the rep
 | `python examples/05_bunny.py` | `14-bunny-before-after.png` | [phase 5](docs/phases/phase-5.md) | the bunny download and `.[mesh]` |
 | `python examples/05_bunny_book_region.py` | `14-bunny-book-region.png` | [phase 5](docs/phases/phase-5.md) | the bunny download and `.[mesh]` |
 | `python examples/05_bunny_back_region.py` | `14-bunny-back-region.png` | [phase 5](docs/phases/phase-5.md) | the bunny download and `.[mesh]` |
+| `python examples/05_bunny_hole_filling_rear.py` | `14-bunny-hole-filling-rear-stages-gray.png`, `14-bunny-hole-filling-rear-weights.png` | [phase 5](docs/phases/phase-5.md), a second real hole | the bunny download and `.[mesh,hole]` |
+| `python examples/05_bunny_hole_filling_rear.py --larger` | `14-bunny-hole-filling-rear-large-stages-gray.png`, `14-bunny-hole-filling-rear-large-weights.png`, `14-bunny-hole-filling-rear-large-weights-slide.png` | [phase 5](docs/phases/phase-5.md), the second hole, larger | the bunny download and `.[mesh,hole]` |
+| `python examples/05_bunny_hole_filling.py` | `14-bunny-hole-filling-stages.png`, `14-bunny-hole-filling-stages-gray.png`, `14-bunny-hole-filling-weights.png` | [phase 5](docs/phases/phase-5.md), a real hole | the bunny download and `.[mesh,hole]` |
 
 The scripts overwrite the committed PNGs, and the bunny scripts also print the numbers quoted in the phase-5 note. The README image is generated independently on a finer mesh than the phase-4 gallery figures, so it takes longer to solve and render. To check the result, run `git status docs/img`. PNG bytes can differ with dependency versions and rendering backends, so compare the images visually when they change.
 
@@ -183,6 +187,14 @@ Each figure is explained in its phase note, under the issue number given here.
 | <img src="docs/img/14-bunny-before-after.png" width="420" alt="Refilling a damaged region of the bunny"> | **#14.** A damaged region of the Stanford bunny refilled with a thin plate. The uniform refill ignores how the region starts; the cotangent refill inherits it. |
 | <img src="docs/img/14-bunny-book-region.png" width="420" alt="A hole like the book's Fig. 4.7, refilled"> | **#14.** A hole like the one in Fig. 4.7, on the full-resolution bunny, filled with a smooth thin-plate patch. |
 | <img src="docs/img/14-bunny-back-region.png" width="420" alt="A hole on the bunny's upper back, refilled"> | **#14.** A larger hole on the upper back, outlined by hand on a picture and wrapping over the back. The thin plate fills it with a smooth patch that sits slightly below the original curve. |
+| <img src="docs/img/14-bunny-hole-filling-stages.png" width="420" alt="Hole filling: construct a patch, then fair it"> | **#14.** A real hole: the upper-back region is removed, a new triangulated patch is built from the hole's boundary alone, and a thin plate gives its interior a smooth shape. |
+| <img src="docs/img/14-bunny-hole-filling-stages-gray.png" width="420" alt="Hole filling stages, faired bunny all gray"> | **#14.** The same stages, with the faired bunny drawn all gray, as in the book's Fig. 4.7. |
+| <img src="docs/img/14-bunny-hole-filling-rear-stages-gray.png" width="420" alt="A second real hole, on the upper rear of the back"> | **#14.** A second, smaller real hole, outlined by hand on the upper rear of the back, filled the same way. |
+| <img src="docs/img/14-bunny-hole-filling-rear-weights.png" width="420" alt="The second hole: same initial patch, different weights"> | **#14.** The second hole's patch faired with uniform and with cotangent weights: here the cotangent patch nearly coincides with the original surface. |
+| <img src="docs/img/14-bunny-hole-filling-rear-large-stages-gray.png" width="420" alt="The second hole, larger: stages"> | **#14.** The second hole, made a little larger (same center, radius 0.028 instead of 0.022), filled the same way. |
+| <img src="docs/img/14-bunny-hole-filling-rear-large-weights.png" width="420" alt="The second hole, larger: same initial patch, different weights"> | **#14.** The larger second hole faired with uniform and with cotangent weights: both stay within a fraction of an edge of the original. |
+| <img src="docs/img/14-bunny-hole-filling-rear-large-weights-slide.png" width="420" alt="The larger second hole: weights comparison for a slide"> | **#14.** The same comparison laid out for a landscape slide: oblique views with the section's cut marked, and an enlarged cross-section. |
+| <img src="docs/img/14-bunny-hole-filling-weights.png" width="420" alt="Same initial patch, different weights"> | **#14.** The same initial patch faired with uniform and with cotangent weights; a cross-section compares both with the original surface. |
 
 ## Study notes
 
@@ -206,16 +218,19 @@ curl -L -o data/bunny.tar.gz https://graphics.stanford.edu/pub/3Dscanrep/bunny.t
 tar -xzf data/bunny.tar.gz -C data bunny/reconstruction
 ```
 
-The examples read the bunny with `trimesh`. `examples/05_bunny.py` uses `data/bunny/reconstruction/bun_zipper_res2.ply` (a decimated version with about 8k vertices). `examples/05_bunny_book_region.py`, a hole like the book's Fig. 4.7, and `examples/05_bunny_back_region.py`, a hole on the upper back, use the full-resolution `bun_zipper.ply` (about 35k vertices) from the same download:
+The examples read the bunny with `trimesh`. `examples/05_bunny.py` uses `data/bunny/reconstruction/bun_zipper_res2.ply` (a decimated version with about 8k vertices). `examples/05_bunny_book_region.py`, a hole like the book's Fig. 4.7, `examples/05_bunny_back_region.py`, a hole on the upper back, `examples/05_bunny_hole_filling.py`, the same hole really cut out and filled with a new patch, and `examples/05_bunny_hole_filling_rear.py`, a second real hole on the upper rear of the back, use the full-resolution `bun_zipper.ply` (about 35k vertices) from the same download:
 
 ```bash
-pip install -e ".[mesh]"
+pip install -e ".[mesh,hole]"
 python examples/05_bunny.py
 python examples/05_bunny_book_region.py
 python examples/05_bunny_back_region.py
+python examples/05_bunny_hole_filling.py
+python examples/05_bunny_hole_filling_rear.py
+python examples/05_bunny_hole_filling_rear.py --larger
 ```
 
-The tests do not need the download: the three tests that use the bunny are skipped when the files are missing. The test of `load_mesh` needs `trimesh` and is skipped without the `mesh` extra.
+The tests do not need the download: the four tests that use the bunny are skipped when the files are missing. The test of `load_mesh` needs `trimesh` and is skipped without the `mesh` extra.
 
 ## Viewing meshes interactively with polyscope
 
