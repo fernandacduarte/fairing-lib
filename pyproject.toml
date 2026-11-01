@@ -21,6 +21,8 @@ dependencies = [
 dev = ["pytest"]
 viewer = ["polyscope"]
 mesh = ["trimesh"]
+# constrained Delaunay triangulation (Shewchuk's Triangle) for the hole-filling example
+hole = ["triangle"]
 
 [tool.setuptools]
 packages = ["fairing"]

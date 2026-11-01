@@ -398,3 +398,61 @@ def test_book_like_hole_is_a_disk_clear_of_the_boundary():
     assert euler == 1 and clearance >= 3
     assert 2000 < free.sum() < 3500
 
+
+@pytest.mark.skipif(not FULL_BUNNY.exists(), reason="the Stanford bunny is not downloaded (see README)")
+def test_upper_back_hole_is_a_disk_clear_of_the_boundary():
+    # The hand-outlined hole of examples/05_bunny_back_region.py, on the upper back: also a
+    # disk at least k + 1 = 3 rings from the full-resolution bunny's boundary edges.
+    pytest.importorskip("trimesh")
+    import runpy
+    back = runpy.run_path(str(BUNNY.parents[3] / "examples" / "05_bunny_back_region.py"), run_name="back")
+    V, F = back["helpers"]["load_bunny"](FULL_BUNNY)
+    free, euler, clearance = back["book"]["book_region"](V, F, back["RADIUS"], back["TARGET"])
+    assert euler == 1 and clearance >= 3
+    assert 3000 < free.sum() < 4000
+
+
+
+
+@pytest.mark.skipif(not FULL_BUNNY.exists(), reason="the Stanford bunny is not downloaded (see README)")
+def test_rear_hole_is_a_disk_clear_of_the_boundary():
+    # The second real hole, examples/05_bunny_hole_filling_rear.py: a disk at least
+    # k + 1 = 3 rings from the full-resolution bunny's boundary edges.
+    pytest.importorskip("trimesh")
+    pytest.importorskip("triangle")
+    import runpy
+    rear = runpy.run_path(str(BUNNY.parents[3] / "examples" / "05_bunny_hole_filling_rear.py"), run_name="rear")
+    V, F = rear["helpers"]["load_bunny"](FULL_BUNNY)
+    free, euler, clearance = rear["book"]["book_region"](V, F, rear["RADIUS"], rear["TARGET"])
+    assert euler == 1 and clearance >= 3
+    assert 900 < free.sum() < 1200
+
+def test_hole_filling_builds_a_patch_without_the_removed_geometry_and_fairs_it():
+    # examples/05_bunny_hole_filling.py on a sphere, so the test does not need the download:
+    # cut a cap out, triangulate the hole from its boundary alone, fair the new interior.
+    pytest.importorskip("triangle")
+    import runpy
+    from fairing.mesh import uv_sphere
+    holes = runpy.run_path(str(BUNNY.parents[3] / "examples" / "05_bunny_hole_filling.py"), run_name="holes")
+    V, F = uv_sphere(30, 60)
+    free = V[:, 0] > 0.8                                        # a cap around (1, 0, 0)
+
+    V_hole, F_hole, kept, loop = holes["cut_hole"](V, F, free)
+    assert len(V_hole) == (~free).sum() and np.array_equal(kept, np.flatnonzero(~free))
+    V_init, F_new, free_new, info = holes["build_patch"](V_hole, F_hole, loop)
+    holes["check_attachment"](V_hole, F_hole, loop, V_init, F_new, free_new, info["h"])
+    assert holes["euler"](F_new) == holes["euler"](F) == 2
+
+    # the removed positions never enter: poisoning them changes nothing
+    poisoned = np.where(free[:, None], np.nan, V)
+    Vp, Fp, _, loop_p = holes["cut_hole"](poisoned, F, free)
+    Vp_init, Fp_new, freep, _ = holes["build_patch"](Vp, Fp, loop_p)
+    assert np.array_equal(Vp_init, V_init) and np.array_equal(Fp_new, F_new) and np.array_equal(freep, free_new)
+
+    off_sphere = lambda W: np.abs(np.linalg.norm(W[free_new], axis=1) - 1).mean()
+    for lap in ("uniform", "cotan"):
+        W = solve_fair(V_init, F_new, free_new, 2, laplacian=lap)
+        assert np.array_equal(W[~free_new], V_init[~free_new])
+        A = fairing_matrix(V_init, F_new, 2, lap)
+        assert np.linalg.norm((A @ W)[free_new]) < 1e-10 * np.linalg.norm(A[free_new][:, ~free_new] @ W[~free_new])
+        assert off_sphere(W) < 0.5 * off_sphere(V_init)              # the flat lid bulges toward the sphere
