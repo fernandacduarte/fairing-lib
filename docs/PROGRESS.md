@@ -13,6 +13,7 @@
 - [x] Follow-up: a real hole on the same region (`examples/05_bunny_hole_filling.py`): faces and vertices removed, a new patch built from the boundary loop alone (plane fit, constrained Delaunay with Triangle, interior on the plane), then faired with uniform and cotangent weights (k = 2).
 - [x] Follow-up: a second real hole (`examples/05_bunny_hole_filling_rear.py`), outlined by hand on the upper rear of the back and matched to the mesh once (the script stores the fitted ball); filled with the same patch construction and thin plate, drawn all gray as in Fig. 4.7.
 - [x] Follow-up: the second hole made a little larger (`05_bunny_hole_filling_rear.py --larger`: same center, radius 0.028), with both figures.
+- [x] Follow-up: Fig. 4.9 on a real head (`examples/06_ogre_face.py`): the face of Keenan Crane's ogre (public domain, read from `../Example-Meshes/ogre/`, not committed) refilled by a thin plate with uniform and cotangent weights.
 
 ## Next
 - Nothing planned. Moonshot M1 (#16, mixed Voronoi area): only if the user asks.
@@ -28,7 +29,7 @@
 - **Docs:** claims are checked against the book's wording; what we derived (e.g. implicit stability for any h) is labeled as ours. Code citations read `` `function`, `file.py:N`<!-- statement --> ``; the comment is not needed for a `def` line (#33).
 
 ## Gotchas
-- The book PDFs must never enter the repo (public); `.gitignore` excludes `*.pdf`. The bunny lives in git-ignored `data/` (credit Stanford, no commercial use).
+- The book PDFs must never enter the repo (public); `.gitignore` excludes `*.pdf`. The bunny lives in git-ignored `data/` (credit Stanford, no commercial use). The ogre lives outside the repo, in `../Example-Meshes/ogre/`.
 - scikit-sparse has no wheels: install SuiteSparse first; on macOS set `SUITESPARSE_*_DIR` and `CPLUS_INCLUDE_PATH` (README).
 - Barycentric area is wrong at UV-sphere poles: H = ¾·(1/R) there at any resolution.
 - The uniform ‖Lx‖ is a length, the cotangent one a curvature: a shared scale only compares zero vs non-zero.

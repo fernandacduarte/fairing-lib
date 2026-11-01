@@ -313,6 +313,8 @@ Tests (`tests/test_fairing.py`): uniform is exact on the regular grid. On the gr
 3. Uniform thin plate: four dark blobs of spurious curvature inside the disk, exactly where the dense bands cross it, and an error of 1.0·10⁻².
 4. Cotangent thin plate: the saddle's pattern is reproduced, with an error of 1.4·10⁻⁴.
 
+The same comparison on a real head, the face of Keenan Crane's ogre, is in phase 5 ("Follow-up: Fig. 4.9 on a real head").
+
 To explore it in 3D, run `examples/04_polyscope_fig49.py`. It shows the same four meshes side by side, with switchable quantities: mean curvature (same scale as the PNG), the error to x² − y², the free region, and, for the uniform result, arrows showing how far each vertex slid sideways.
 
 **Pitfalls.**

@@ -301,3 +301,42 @@ All 54 citations that the notes had before this issue are now checked: 23 cite a
 - *A range pins only one statement.* `smoothing.py:58–60`<!-- spla.eigsh( --> names the `eigsh` call in phase 3's text and the `return` line in its table. If lines are inserted inside the range, the named statement may still be within it, so keep ranges short.
 - *Even examples are checked.* While this section was being written, the test flagged two citations in it that named no statement. A line number that is only mentioned, not cited, is written without backticks.
 - *The comment must survive Markdown.* A statement containing `|` would split a table cell, and `-->` would end the comment early. None of ours does; pick another part of the line if one ever does.
+
+## Follow-up: Fig. 4.9 on a real head (the ogre)
+
+**Theory → code.** Fig. 4.9 (§4.3, p. 60) frees the face of a scanned head and solves the thin-plate equation Δ²x = 0 with uniform and with cotangent weights. #12 reproduced the idea on a synthetic graded mesh; this follow-up does it on a real head, as in the book. No new library code: the solver is `solve_fair`, `fairing/fairing.py:37`, and the mesh is read with `load_obj`, `fairing/mesh.py:213`.
+
+**Data.** The book's head (a Cyberware model) is not available online, so we use "Jerry the Ogre" by Keenan Crane, from his 3D Model Repository, released into the public domain. Like the bunny, it is not committed: the script reads `../Example-Meshes/ogre/bs_rest.obj`, next to the repository (README, "Jerry the Ogre"). `bs_rest.obj` is the rest pose of the ogre's blend shapes: 19985 vertices, 39856 triangles. The back of the head is cut away, so the mesh is a disk with one boundary loop (112 boundary edges) and no non-manifold edges. What makes it a good stand-in for the book's head is its sampling: the edge lengths range from 0.0029 to 0.0398 (1st to 99th percentile), a ratio of about 14. The triangles are dense around the eye, nose and lips, and large on the cheeks and the sides of the head. The connectivity is mostly regular (84% of the vertices have valence 6), so, as on the graded grid of #12, it is the *density*, not the valence, that varies.
+
+| Step | Code |
+|---|---|
+| read the OBJ, rotate from y-up to z-up | `load_ogre`, `examples/06_ogre_face.py` |
+| the face region | `face_region`, `examples/06_ogre_face.py` |
+| refills and figure | `main`, `examples/06_ogre_face.py` |
+
+**The region.** In the front view, an ellipse 0.64 wide and 0.90 tall, centered 0.1 below the origin, covers the face from forehead to chin and leaves out the ears. The ellipse also catches vertices behind the face, so `face_region` keeps only its connected piece that contains the tip of the nose. That gives 8538 free vertices, at least 5 rings from the mesh's boundary (k + 1 = 3 are needed, #14). As in the book, the free vertices start where they are: the original face is the input, and the weights are frozen from it.
+
+| thin plate (k = 2) | median \|H\| on the region | 95th percentile | max distance to the original |
+|---|---|---|---|
+| (original, for reference) | 12.9 | 82.5 | — |
+| uniform weights | 7.0 | **243.7** | 0.286 |
+| cotangent weights | **2.2** | 85.5 | 0.203 |
+
+What this shows:
+- **The book's figure, on a real mesh.** The cotangent patch is a smooth dome over the face (median |H| 2.2). The uniform patch is smooth in the large, but has artifacts exactly where the density changes: bumps beside the nostrils, a crease across the mouth, and a sharp spike on the forehead, where its 95th percentile (244) is three times the original's.
+- **The same cause as in #12.** Uniform weights treat every edge as having the same length. Where small triangles (nose, lips) meet large ones (cheeks), their implicit parametrization is distorted, and vertices slide sideways.
+- **Cotangent weights are not perfect either.** The cotangent patch has a few small dimples, the deepest at the eye and two smaller ones at the nostrils. They sit where the original has its sharpest features. The triangles there are not skinny: the vertices with the highest |H| have a median smallest angle of 31°, against 32° over the whole region. A likely cause is that the weights are frozen from the original, strongly curved eye and nostrils (the start matters, #14), but we have not checked this.
+- **Fairing does not denoise.** The thin plate replaces the whole face, eye, nose and mouth included, with the smoothest surface that fits the border. It is the right tool for the book's comparison, not for removing noise while keeping features.
+
+**What the figures show.**
+
+![The ogre's face refilled by a thin plate](../img/15-ogre-face.png)
+
+`docs/img/15-ogre-face.png`, all panels seen from the front.
+- Top: the original ogre, with its triangle edges in a light, semi-transparent gray. Denser regions look darker, so the variation of the sampling shows: fine triangles around the eye, nose and lips, large ones on the cheeks.
+- Bottom, as in Fig. 4.9: the input with the free region in blue, the uniform thin plate (the forehead spike and the bumps beside the nostrils are visible), and the cotangent thin plate (smooth, with the small dimple at the eye).
+
+**Pitfalls.**
+- *File orientation.* The ogre is y-up, with the face along +z; `load_ogre` rotates it to z-up, with the face along −y, for matplotlib's 3D axes.
+- *Dense edges turn black.* With 40k triangles in a small panel, dark edges cover the surface completely. Light, semi-transparent edges keep the shape readable, and the density of the edges itself shows where the triangles are small.
+- *An ellipse in 2D is not a region on the surface.* A front-view mask also selects vertices behind the face (inside the mouth, at the back of the head). Keeping the connected piece that contains the nose fixes this.

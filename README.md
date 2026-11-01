@@ -107,7 +107,7 @@ Meshes are plain NumPy arrays: `V` is `(n, 3)` float and `F` is `(m, 3)` int. Ev
 
 ## Reproduce every figure
 
-Every PNG in `docs/img/` is written by one of twelve scripts. Run them from the repository root, inside `.venv`:
+Every PNG in `docs/img/` is written by one of thirteen scripts. Run them from the repository root, inside `.venv`:
 
 | Script | Figures | Phase note | Needs |
 |---|---|---|---|
@@ -124,8 +124,9 @@ Every PNG in `docs/img/` is written by one of twelve scripts. Run them from the 
 | `python examples/05_bunny_hole_filling_rear.py` | `14-bunny-hole-filling-rear-stages-gray.png`, `14-bunny-hole-filling-rear-weights.png` | [phase 5](docs/phases/phase-5.md), a second real hole | the bunny download and `.[mesh,hole]` |
 | `python examples/05_bunny_hole_filling_rear.py --larger` | `14-bunny-hole-filling-rear-large-stages-gray.png`, `14-bunny-hole-filling-rear-large-weights.png`, `14-bunny-hole-filling-rear-large-weights-slide.png` | [phase 5](docs/phases/phase-5.md), the second hole, larger | the bunny download and `.[mesh,hole]` |
 | `python examples/05_bunny_hole_filling.py` | `14-bunny-hole-filling-stages.png`, `14-bunny-hole-filling-stages-gray.png`, `14-bunny-hole-filling-weights.png` | [phase 5](docs/phases/phase-5.md), a real hole | the bunny download and `.[mesh,hole]` |
+| `python examples/06_ogre_face.py` | `15-ogre-face.png` | [phase 5](docs/phases/phase-5.md), Fig. 4.9 on a real head | the ogre download (see "Jerry the Ogre") |
 
-The scripts overwrite the committed PNGs, and the bunny scripts also print the numbers quoted in the phase-5 note. The README image is generated independently on a finer mesh than the phase-4 gallery figures, so it takes longer to solve and render. To check the result, run `git status docs/img`. PNG bytes can differ with dependency versions and rendering backends, so compare the images visually when they change.
+The scripts overwrite the committed PNGs, and the bunny and ogre scripts also print the numbers quoted in the phase-5 note. The README image is generated independently on a finer mesh than the phase-4 gallery figures, so it takes longer to solve and render. To check the result, run `git status docs/img`. PNG bytes can differ with dependency versions and rendering backends, so compare the images visually when they change.
 
 To regenerate only the three-panel elbow-profile comparison of cotangent and uniform weights:
 
@@ -195,6 +196,7 @@ Each figure is explained in its phase note, under the issue number given here.
 | <img src="docs/img/14-bunny-hole-filling-rear-large-weights.png" width="420" alt="The second hole, larger: same initial patch, different weights"> | **#14.** The larger second hole faired with uniform and with cotangent weights: both stay within a fraction of an edge of the original. |
 | <img src="docs/img/14-bunny-hole-filling-rear-large-weights-slide.png" width="420" alt="The larger second hole: weights comparison for a slide"> | **#14.** The same comparison laid out for a landscape slide: oblique views with the section's cut marked, and an enlarged cross-section. |
 | <img src="docs/img/14-bunny-hole-filling-weights.png" width="420" alt="Same initial patch, different weights"> | **#14.** The same initial patch faired with uniform and with cotangent weights; a cross-section compares both with the original surface. |
+| <img src="docs/img/15-ogre-face.png" width="420" alt="The ogre's face refilled by a thin plate"> | **Fig. 4.9 on a real head (#12).** The face of Keenan Crane's ogre, whose edge lengths vary about 14×, refilled by a thin plate. Uniform weights wrinkle the patch and raise a spike on the forehead; cotangent weights give a smooth patch, as in the book's figure. |
 
 ## Study notes
 
@@ -206,7 +208,7 @@ The phase notes are written for a student who has read the chapter but not the c
 | [Phase 2: Discrete Laplace–Beltrami](docs/phases/phase-2.md) | Eq. 3.7, 3.10, 3.11, 3.13; App. A.1 | #5 uniform, #6 cotangent |
 | [Phase 3: Diffusion flow](docs/phases/phase-3.md) | §4.2, Eq. 4.5–4.6; App. A.1 | #7 explicit, #8 implicit |
 | [Phase 4: Fairing](docs/phases/phase-4.md) | §4.3, Eq. 4.7–4.9, Fig. 4.8–4.9; App. A | #9 solver, #10 membrane, #11 thin plate and minimum variation, #12 uniform vs cotangent, #13 the limit of the flow |
-| [Phase 5: A real mesh](docs/phases/phase-5.md) | §4.3, Fig. 4.7 | #14 bunny hole filling |
+| [Phase 5: A real mesh](docs/phases/phase-5.md) | §4.3, Fig. 4.7, Fig. 4.9 | #14 bunny hole filling, Fig. 4.9 on the ogre |
 
 ## The Stanford bunny
 
@@ -231,6 +233,17 @@ python examples/05_bunny_hole_filling_rear.py --larger
 ```
 
 The tests do not need the download: the four tests that use the bunny are skipped when the files are missing. The test of `load_mesh` needs `trimesh` and is skipped without the `mesh` extra.
+
+## Jerry the Ogre
+
+`examples/06_ogre_face.py` reproduces Fig. 4.9 on "Jerry the Ogre" by Keenan Crane, from [Keenan Crane's 3D Model Repository](https://www.cs.cmu.edu/~kmcrane/Projects/ModelRepository/). The author released it into the public domain. Like the bunny, it is **not** included in this repository. Download the ogre archive and unpack it into a folder `Example-Meshes/ogre/` *next to* the repository (the script reads `../Example-Meshes/ogre/bs_rest.obj`), or pass the path to `bs_rest.obj`:
+
+```bash
+python examples/06_ogre_face.py
+python examples/06_ogre_face.py path/to/bs_rest.obj
+```
+
+The script reads the OBJ with `load_obj`, so it needs no extra dependency.
 
 ## Viewing meshes interactively with polyscope
 
@@ -289,3 +302,4 @@ polyscope is never needed by the tests or by CI.
 
 - The book: M. Botsch, L. Kobbelt, M. Pauly, P. Alliez and B. Lévy, *Polygon Mesh Processing*, A K Peters, 2010. Phase 4 also consults M. Botsch and L. Kobbelt, "An Intuitive Framework for Real-Time Freeform Modeling" (2004), the paper behind Fig. 4.8.
 - The Stanford Bunny: Stanford Computer Graphics Laboratory, [Stanford 3D Scanning Repository](https://graphics.stanford.edu/data/3Dscanrep/).
+- Jerry the Ogre: Keenan Crane (public domain), [Keenan Crane's 3D Model Repository](https://www.cs.cmu.edu/~kmcrane/Projects/ModelRepository/).
